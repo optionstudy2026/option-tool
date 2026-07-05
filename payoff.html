@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期权组合到期损益图</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f0f2f5;
+    --panel: #ffffff;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --call-color: #dc2626;
+    --put-color: #16a34a;
+    --buy-bg: #dcfce7;
+    --sell-bg: #fee2e2;
+    --strike-bg: #f8fafc;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 16px;
+  }
+  /* 顶部导航 */
+  #navbar {
+    height: 50px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  #navbar .title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  #navbar .db-status {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 4px #22c55e;
+  }
+  #navbar .db-status.disconnected {
+    background: #94a3b8;
+    box-shadow: none;
+  }
+  #navbar .date-display {
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", "Fira Code", "Consolas", "Menlo", monospace;
+  }
+  /* 主体 */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  /* 左侧面板 */
+  #left-panel {
+    width: 540px;
+    min-width: 540px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  #left-panel::-webkit-scrollbar { width: 6px; }
+  #left-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  /* 面板内部区块 */
+  .section { }
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  /* 模板chips */
+  #template-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: 13px;
+    cursor: pointer;
+    background: var(--panel);
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--accent); background: var(--accent-light); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* 品种/到期行 */
+  #selectors-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  #selectors-row select, #selectors-row input {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--panel);
+  }
+  #selectors-row input[type="date"] {
+    font-family: inherit;
+    width: 140px;
+  }
+  .btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-sm { padding: 3px 10px; font-size: 13px; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-outline { border: 1px solid var(--border); background: var(--panel); }
+  .btn-outline:hover { background: #f1f5f9; }
+  /* T型报价表 */
+  #quote-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    min-height: 200px;
+  }
+  #quote-table-wrap::-webkit-scrollbar { width: 5px; }
+  #quote-table-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  #quote-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", "Fira Code", "Consolas", "Menlo", monospace;
+  }
+  #quote-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  #quote-table thead th {
+    background: #f8fafc;
+    padding: 7px 4px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+  }
+  #quote-table tbody td {
+    padding: 2px 4px;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  #quote-table .strike-cell {
+    background: var(--strike-bg);
+    font-weight: 700;
+    color: var(--text);
+    font-size: 21px;
+  }
+  #quote-table .call-cell .price { color: var(--call-color); font-weight: 500; }
+  #quote-table .put-cell .price { color: var(--put-color); font-weight: 500; }
+  #quote-table .greek { font-size: 19px; color: var(--text-secondary); }
+  #quote-table .act-btn {
+    display: inline-block;
+    padding: 3px 8px;
+    margin: 0 2px;
+    border-radius: 3px;
+    font-size: 17px;
+    cursor: pointer;
+    font-weight: 500;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  #quote-table .act-cell { white-space: nowrap; }
+  .act-buy { background: var(--buy-bg); color: #166534; border-color: #bbf7d0; }
+  .act-buy:hover { background: #bbf7d0; }
+  .act-sell { background: var(--sell-bg); color: #991b1b; border-color: #fecaca; }
+  .act-sell:hover { background: #fecaca; }
+  /* 模板引导模式 */
+  #quote-table .guide-highlight td { background: #f0f9ff; }
+  #quote-table .guide-default td { background: #dbeafe; box-shadow: inset 0 0 0 2px #3b82f6; }
+  .act-btn.disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+  .act-btn.guide-active { box-shadow: 0 0 0 2px #3b82f6; }
+  .guide-hint { font-size: 13px; color: #3b82f6; margin-bottom: 4px; text-align:center; }
+  #guide-hint-bar { padding: 6px; background: #eff6ff; border-radius: 4px; margin-bottom: 6px; text-align:center; font-size:14px; display:none; }
+  /* 模板表头颜色 */
+  #quote-table .header-call { background: #dcfce7; color: #166534; }
+  #quote-table .header-put  { background: #fee2e2; color: #991b1b; }
+  #quote-table .header-call-act { background: #dcfce7; color: #166534; font-size: 15px; }
+  #quote-table .header-put-act  { background: #fee2e2; color: #991b1b; font-size: 15px; }
+  #quote-table .guide-pick td { background: #fef9c3; }
+  /* 策略腿表格 */
+  #legs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  #legs-table th {
+    text-align: left;
+    padding: 5px 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+  #legs-table td { padding: 5px 6px; border-bottom: 1px solid #f1f5f9; }
+  #legs-table .leg-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .qty-ctrl { display: inline-flex; align-items: center; gap: 4px; }
+  .qty-ctrl button {
+    width: 22px; height: 22px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--panel);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .qty-ctrl .qty-val { min-width: 18px; text-align: center; font-weight: 600; }
+  /* 成本输入 */
+  #cost-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+  }
+  #cost-area input {
+    width: 130px;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  /* 右侧图表 */
+  #chart-area {
+    flex: 1;
+    position: relative;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+  }
+  #chart-canvas-wrap {
+    flex: 1;
+    position: relative;
+  }
+  #chart-canvas-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #chart-tooltip {
+    position: absolute;
+    background: rgba(30,41,59,0.92);
+    color: #fff;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    pointer-events: none;
+    display: none;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", "Fira Code", "Consolas", "Menlo", monospace;
+  }
+  #legend {
+    padding: 8px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 15px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-line { width: 16px; height: 2px; border-radius: 1px; }
+  .legend-line.solid { height: 2.5px; }
+  .legend-line.dashed { border-top: 1.5px dashed; height: 0; }
+  .empty-state {
+    color: var(--text-secondary);
+    font-size: 15px;
+    text-align: center;
+    padding: 20px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div id="navbar">
+  <span class="title">期权到期损益图</span>
+  <span id="db-indicator" class="db-status disconnected" title="数据库连接状态"></span>
+  <span class="date-display" id="current-date-display">—</span>
+</div>
+
+<!-- 主体 -->
+<div id="main">
+  <!-- 左侧面板 -->
+  <div id="left-panel">
+    <!-- 策略模板 -->
+    <div class="section">
+      <div class="section-title">策略模板</div>
+      <div id="template-chips"></div>
+    </div>
+
+    <!-- 品种 + 到期月 + 日期 -->
+    <div class="section">
+      <div class="section-title">合约筛选</div>
+      <div id="selectors-row">
+        <select id="underlying-select"></select>
+        <select id="expiry-select"></select>
+        <input type="date" id="date-input">
+        <button class="btn btn-primary btn-sm" id="load-btn">加载</button>
+      </div>
+    </div>
+
+    <!-- T型报价 -->
+    <div class="section" style="flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden;">
+      <div class="section-title">T型报价</div>
+      <div id="guide-hint-bar"></div>
+      <div id="quote-table-wrap">
+        <table id="quote-table">
+          <thead>
+            <tr>
+              <th colspan="3">CALL</th>
+              <th>行权价</th>
+              <th colspan="3">PUT</th>
+            </tr>
+            <tr>
+              <th>最新价</th><th>Delta</th><th></th>
+              <th></th>
+              <th></th><th>Delta</th><th>最新价</th>
+            </tr>
+          </thead>
+          <tbody id="quote-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 策略腿管理 -->
+    <div class="section" style="max-height:210px; overflow-y:auto;">
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+        策略腿
+        <button class="btn btn-outline btn-sm" id="reverse-legs-btn" title="一键反转买卖方向">反转</button>
+        <button class="btn btn-outline btn-sm" id="clear-legs-btn">清空</button>
+      </div>
+      <table id="legs-table">
+        <thead>
+          <tr><th></th><th>方向</th><th>类型</th><th>行权价</th><th>手数</th><th></th></tr>
+        </thead>
+        <tbody id="legs-tbody">
+          <tr><td colspan="6" class="empty-state">点击T型报价的买/卖按钮添加策略腿</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 建仓成本 -->
+    <div class="section">
+      <div class="section-title">建仓成本（仅参考，不影响损益图）</div>
+      <div id="cost-area">
+        <input type="number" id="cost-input" placeholder="总成本（元）" step="0.01">
+        <span id="cost-preview" style="font-size:12px; color:var(--text-secondary);"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧图表 -->
+  <div id="chart-area">
+    <div id="chart-canvas-wrap">
+      <canvas id="payoff-canvas"></canvas>
+      <div id="chart-tooltip"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 配置 ==========
+const USE_REAL_API = false;
+const REAL_STATIC_DATA = {"TA8888": {"name": "PTA", "mul": 5, "underlyingPrice": 5800, "options": [{"strike": 4200, "call": {"lastPrice": 1238.0, "delta": 0.9898}, "put": {"lastPrice": 4.0, "delta": -0.0118}}, {"strike": 4250, "call": {"lastPrice": 0.0, "delta": 0.9867}, "put": {"lastPrice": 5.5, "delta": -0.0145}}, {"strike": 4300, "call": {"lastPrice": 0.0, "delta": 0.9836}, "put": {"lastPrice": 7.0, "delta": -0.0174}}, {"strike": 4350, "call": {"lastPrice": 0.0, "delta": 0.9798}, "put": {"lastPrice": 6.5, "delta": -0.0209}}, {"strike": 4400, "call": {"lastPrice": 0.0, "delta": 0.9751}, "put": {"lastPrice": 6.5, "delta": -0.0254}}, {"strike": 4450, "call": {"lastPrice": 0.0, "delta": 0.9702}, "put": {"lastPrice": 8.0, "delta": -0.03}}, {"strike": 4500, "call": {"lastPrice": 0.0, "delta": 0.9636}, "put": {"lastPrice": 8.5, "delta": -0.0364}}, {"strike": 4550, "call": {"lastPrice": 0.0, "delta": 0.9563}, "put": {"lastPrice": 11.0, "delta": -0.0434}}, {"strike": 4600, "call": {"lastPrice": 791.0, "delta": 0.948}, "put": {"lastPrice": 12.0, "delta": -0.0516}}, {"strike": 4650, "call": {"lastPrice": 0.0, "delta": 0.9375}, "put": {"lastPrice": 14.5, "delta": -0.0618}}, {"strike": 4700, "call": {"lastPrice": 699.0, "delta": 0.9267}, "put": {"lastPrice": 17.0, "delta": -0.0724}}, {"strike": 4750, "call": {"lastPrice": 0.0, "delta": 0.9121}, "put": {"lastPrice": 20.0, "delta": -0.0868}}, {"strike": 4800, "call": {"lastPrice": 0.0, "delta": 0.8971}, "put": {"lastPrice": 24.0, "delta": -0.1016}}, {"strike": 4850, "call": {"lastPrice": 0.0, "delta": 0.8783}, "put": {"lastPrice": 28.0, "delta": -0.1202}}, {"strike": 4900, "call": {"lastPrice": 0.0, "delta": 0.8582}, "put": {"lastPrice": 34.0, "delta": -0.1402}}, {"strike": 4950, "call": {"lastPrice": 0.0, "delta": 0.8343}, "put": {"lastPrice": 41.0, "delta": -0.1639}}, {"strike": 5000, "call": {"lastPrice": 467.0, "delta": 0.8085}, "put": {"lastPrice": 48.0, "delta": -0.1896}}, {"strike": 5100, "call": {"lastPrice": 390.5, "delta": 0.7472}, "put": {"lastPrice": 67.5, "delta": -0.2506}}, {"strike": 5200, "call": {"lastPrice": 318.5, "delta": 0.6753}, "put": {"lastPrice": 95.0, "delta": -0.3224}}, {"strike": 5300, "call": {"lastPrice": 253.0, "delta": 0.5951}, "put": {"lastPrice": 129.0, "delta": -0.4024}}, {"strike": 5400, "call": {"lastPrice": 200.0, "delta": 0.5112}, "put": {"lastPrice": 178.0, "delta": -0.4863}}, {"strike": 5500, "call": {"lastPrice": 157.5, "delta": 0.429}, "put": {"lastPrice": 231.0, "delta": -0.5685}}, {"strike": 5600, "call": {"lastPrice": 120.5, "delta": 0.3531}, "put": {"lastPrice": 295.0, "delta": -0.6446}}, {"strike": 5700, "call": {"lastPrice": 91.5, "delta": 0.2863}, "put": {"lastPrice": 371.0, "delta": -0.7115}}, {"strike": 5800, "call": {"lastPrice": 69.0, "delta": 0.2307}, "put": {"lastPrice": 440.5, "delta": -0.7674}}, {"strike": 5900, "call": {"lastPrice": 53.0, "delta": 0.1857}, "put": {"lastPrice": 548.0, "delta": -0.8126}}, {"strike": 6000, "call": {"lastPrice": 42.0, "delta": 0.1493}, "put": {"lastPrice": 0.0, "delta": -0.8492}}, {"strike": 6100, "call": {"lastPrice": 32.5, "delta": 0.1196}, "put": {"lastPrice": 745.0, "delta": -0.8792}}, {"strike": 6200, "call": {"lastPrice": 26.0, "delta": 0.0973}, "put": {"lastPrice": 0.0, "delta": -0.9018}}, {"strike": 6300, "call": {"lastPrice": 22.0, "delta": 0.0793}, "put": {"lastPrice": 886.5, "delta": -0.9201}}, {"strike": 6400, "call": {"lastPrice": 16.5, "delta": 0.0648}, "put": {"lastPrice": 1000.0, "delta": -0.9349}}, {"strike": 6500, "call": {"lastPrice": 13.0, "delta": 0.0537}, "put": {"lastPrice": 0.0, "delta": -0.9464}}, {"strike": 6600, "call": {"lastPrice": 11.0, "delta": 0.0445}, "put": {"lastPrice": 0.0, "delta": -0.9559}}, {"strike": 6700, "call": {"lastPrice": 10.0, "delta": 0.037}, "put": {"lastPrice": 0.0, "delta": -0.9637}}, {"strike": 6800, "call": {"lastPrice": 8.5, "delta": 0.0313}, "put": {"lastPrice": 0.0, "delta": -0.9697}}, {"strike": 6900, "call": {"lastPrice": 6.5, "delta": 0.0259}, "put": {"lastPrice": 0.0, "delta": -0.9754}}, {"strike": 7000, "call": {"lastPrice": 7.0, "delta": 0.0223}, "put": {"lastPrice": 0.0, "delta": -0.9793}}, {"strike": 7100, "call": {"lastPrice": 5.5, "delta": 0.0191}, "put": {"lastPrice": 0.0, "delta": -0.9829}}, {"strike": 7200, "call": {"lastPrice": 4.5, "delta": 0.0159}, "put": {"lastPrice": 0.0, "delta": -0.9864}}, {"strike": 7300, "call": {"lastPrice": 4.0, "delta": 0.0139}, "put": {"lastPrice": 0.0, "delta": -0.9887}}, {"strike": 7400, "call": {"lastPrice": 0.0, "delta": 0.0121}, "put": {"lastPrice": 0.0, "delta": -0.9909}}, {"strike": 7500, "call": {"lastPrice": 2.5, "delta": 0.0103}, "put": {"lastPrice": 0.0, "delta": -0.993}}, {"strike": 7600, "call": {"lastPrice": 3.0, "delta": 0.0088}, "put": {"lastPrice": 0.0, "delta": -0.9948}}, {"strike": 7700, "call": {"lastPrice": 2.5, "delta": 0.0078}, "put": {"lastPrice": 0.0, "delta": -0.996}}, {"strike": 7800, "call": {"lastPrice": 2.5, "delta": 0.0068}, "put": {"lastPrice": 0.0, "delta": -0.9974}}, {"strike": 7900, "call": {"lastPrice": 2.0, "delta": 0.0059}, "put": {"lastPrice": 0.0, "delta": -0.9987}}, {"strike": 8000, "call": {"lastPrice": 3.0, "delta": 0.0051}, "put": {"lastPrice": 0.0, "delta": -0.9994}}, {"strike": 8100, "call": {"lastPrice": 0.0, "delta": 0.0004}, "put": {"lastPrice": 0.0, "delta": -1.0}}]}, "MA8888": {"name": "甲醇", "mul": 10, "underlyingPrice": 2550, "options": [{"strike": 1900, "call": {"lastPrice": 487.5, "delta": 0.9676}, "put": {"lastPrice": 3.0, "delta": -0.0325}}, {"strike": 1925, "call": {"lastPrice": 450.5, "delta": 0.9613}, "put": {"lastPrice": 3.5, "delta": -0.0385}}, {"strike": 1950, "call": {"lastPrice": 430.0, "delta": 0.9548}, "put": {"lastPrice": 4.0, "delta": -0.0448}}, {"strike": 1975, "call": {"lastPrice": 413.5, "delta": 0.9467}, "put": {"lastPrice": 4.5, "delta": -0.0527}}, {"strike": 2000, "call": {"lastPrice": 390.0, "delta": 0.9373}, "put": {"lastPrice": 5.5, "delta": -0.0619}}, {"strike": 2025, "call": {"lastPrice": 354.0, "delta": 0.9276}, "put": {"lastPrice": 6.5, "delta": -0.0715}}, {"strike": 2050, "call": {"lastPrice": 330.5, "delta": 0.9144}, "put": {"lastPrice": 8.0, "delta": -0.0845}}, {"strike": 2075, "call": {"lastPrice": 303.0, "delta": 0.9006}, "put": {"lastPrice": 9.5, "delta": -0.0981}}, {"strike": 2100, "call": {"lastPrice": 0.0, "delta": 0.8841}, "put": {"lastPrice": 11.0, "delta": -0.1145}}, {"strike": 2125, "call": {"lastPrice": 0.0, "delta": 0.8653}, "put": {"lastPrice": 13.5, "delta": -0.1331}}, {"strike": 2150, "call": {"lastPrice": 0.0, "delta": 0.8442}, "put": {"lastPrice": 17.0, "delta": -0.1541}}, {"strike": 2175, "call": {"lastPrice": 224.5, "delta": 0.8195}, "put": {"lastPrice": 20.0, "delta": -0.1786}}, {"strike": 2200, "call": {"lastPrice": 196.5, "delta": 0.7924}, "put": {"lastPrice": 25.5, "delta": -0.2056}}, {"strike": 2225, "call": {"lastPrice": 180.5, "delta": 0.7612}, "put": {"lastPrice": 30.5, "delta": -0.2367}}, {"strike": 2250, "call": {"lastPrice": 164.0, "delta": 0.7272}, "put": {"lastPrice": 37.5, "delta": -0.2705}}, {"strike": 2275, "call": {"lastPrice": 147.0, "delta": 0.6895}, "put": {"lastPrice": 45.0, "delta": -0.3081}}, {"strike": 2300, "call": {"lastPrice": 131.5, "delta": 0.649}, "put": {"lastPrice": 53.5, "delta": -0.3486}}, {"strike": 2325, "call": {"lastPrice": 114.0, "delta": 0.6059}, "put": {"lastPrice": 61.0, "delta": -0.3916}}, {"strike": 2350, "call": {"lastPrice": 101.0, "delta": 0.5609}, "put": {"lastPrice": 72.5, "delta": -0.4366}}, {"strike": 2375, "call": {"lastPrice": 89.0, "delta": 0.515}, "put": {"lastPrice": 86.0, "delta": -0.4825}}, {"strike": 2400, "call": {"lastPrice": 78.0, "delta": 0.4694}, "put": {"lastPrice": 98.5, "delta": -0.5281}}, {"strike": 2425, "call": {"lastPrice": 66.5, "delta": 0.4249}, "put": {"lastPrice": 113.5, "delta": -0.5727}}, {"strike": 2450, "call": {"lastPrice": 58.0, "delta": 0.3827}, "put": {"lastPrice": 132.5, "delta": -0.6149}}, {"strike": 2475, "call": {"lastPrice": 52.0, "delta": 0.3434}, "put": {"lastPrice": 149.5, "delta": -0.6543}}, {"strike": 2500, "call": {"lastPrice": 43.5, "delta": 0.3075}, "put": {"lastPrice": 163.0, "delta": -0.6902}}, {"strike": 2550, "call": {"lastPrice": 33.0, "delta": 0.247}, "put": {"lastPrice": 206.5, "delta": -0.7509}}, {"strike": 2600, "call": {"lastPrice": 26.0, "delta": 0.2003}, "put": {"lastPrice": 245.5, "delta": -0.7979}}, {"strike": 2650, "call": {"lastPrice": 19.0, "delta": 0.164}, "put": {"lastPrice": 288.5, "delta": -0.8345}}, {"strike": 2700, "call": {"lastPrice": 15.5, "delta": 0.1373}, "put": {"lastPrice": 332.0, "delta": -0.8614}}, {"strike": 2750, "call": {"lastPrice": 13.0, "delta": 0.1162}, "put": {"lastPrice": 371.0, "delta": -0.8827}}, {"strike": 2800, "call": {"lastPrice": 9.5, "delta": 0.0998}, "put": {"lastPrice": 429.0, "delta": -0.8993}}, {"strike": 2850, "call": {"lastPrice": 8.5, "delta": 0.086}, "put": {"lastPrice": 478.0, "delta": -0.9133}}, {"strike": 2900, "call": {"lastPrice": 7.5, "delta": 0.0759}, "put": {"lastPrice": 520.0, "delta": -0.9236}}, {"strike": 2950, "call": {"lastPrice": 5.5, "delta": 0.0665}, "put": {"lastPrice": 557.0, "delta": -0.9333}}, {"strike": 3000, "call": {"lastPrice": 5.0, "delta": 0.0588}, "put": {"lastPrice": 636.0, "delta": -0.9411}}, {"strike": 3050, "call": {"lastPrice": 4.5, "delta": 0.0529}, "put": {"lastPrice": 651.0, "delta": -0.9472}}, {"strike": 3100, "call": {"lastPrice": 4.0, "delta": 0.0473}, "put": {"lastPrice": 0.0, "delta": -0.9531}}, {"strike": 3150, "call": {"lastPrice": 3.5, "delta": 0.042}, "put": {"lastPrice": 0.0, "delta": -0.9587}}, {"strike": 3200, "call": {"lastPrice": 4.0, "delta": 0.0383}, "put": {"lastPrice": 0.0, "delta": -0.9625}}, {"strike": 3250, "call": {"lastPrice": 2.5, "delta": 0.0349}, "put": {"lastPrice": 0.0, "delta": -0.9661}}, {"strike": 3300, "call": {"lastPrice": 3.0, "delta": 0.0317}, "put": {"lastPrice": 0.0, "delta": -0.9696}}, {"strike": 3350, "call": {"lastPrice": 2.5, "delta": 0.0285}, "put": {"lastPrice": 0.0, "delta": -0.973}}, {"strike": 3400, "call": {"lastPrice": 2.0, "delta": 0.0259}, "put": {"lastPrice": 0.0, "delta": -0.9757}}, {"strike": 3450, "call": {"lastPrice": 1.5, "delta": 0.024}, "put": {"lastPrice": 0.0, "delta": -0.9778}}, {"strike": 3500, "call": {"lastPrice": 1.5, "delta": 0.0221}, "put": {"lastPrice": 0.0, "delta": -0.9799}}, {"strike": 3550, "call": {"lastPrice": 2.0, "delta": 0.0203}, "put": {"lastPrice": 0.0, "delta": -0.982}}, {"strike": 3600, "call": {"lastPrice": 0.0, "delta": 0.0185}, "put": {"lastPrice": 0.0, "delta": -0.984}}, {"strike": 3650, "call": {"lastPrice": 2.0, "delta": 0.0168}, "put": {"lastPrice": 0.0, "delta": -0.9859}}, {"strike": 3700, "call": {"lastPrice": 0.0, "delta": 0.0002}, "put": {"lastPrice": 0.0, "delta": -1.0}}, {"strike": 3750, "call": {"lastPrice": 0.5, "delta": 0.0002}, "put": {"lastPrice": 0.0, "delta": -1.0}}]}};
+const API_BASE = 'http://localhost:3456';
+
+// ========== 全局状态 ==========
+let quoteData = [];
+let underlyingPrice = null;
+let multiplier = 10000;
+let activeTemplate = 'custom';
+
+// 模板引导模式
+let guideMode = null;         // null | template id
+let guideLeftStrike = null;   // 当前模板左列选中行权价
+let guideRightStrike = null;  // 当前模板右列选中行权价
+
+// 模板配置: 同类型→左买右卖; 混合→CALL左PUT右
+const TEMPLATE_MODE = {
+  bull_call_spread: {
+    left:  { type:'call', dir:'buy',  offset: 0 },
+    right: { type:'call', dir:'sell', offset: 2 },  // right > left
+  },
+  bear_call_spread: {
+    left:  { type:'call', dir:'buy',  offset: 2 },
+    right: { type:'call', dir:'sell', offset: 0 },  // right < left
+  },
+  bear_put_spread: {
+    left:  { type:'put',  dir:'buy',  offset: 2 },
+    right: { type:'put',  dir:'sell', offset: 0 },  // right < left
+  },
+  bull_put_spread: {
+    left:  { type:'put',  dir:'buy',  offset: 0 },
+    right: { type:'put',  dir:'sell', offset: 2 },  // right > left
+  },
+  straddle: {
+    left:  { type:'call', dir:'buy',  offset: 0 },
+    right: { type:'put',  dir:'buy',  offset: 0 },  // linked same strike
+  },
+  sell_straddle: {
+    left:  { type:'call', dir:'sell', offset: 0 },
+    right: { type:'put',  dir:'sell', offset: 0 },  // linked same strike
+  },
+  strangle: {
+    left:  { type:'call', dir:'buy',  offset: 2 },
+    right: { type:'put',  dir:'buy',  offset: -2 }, // left > right
+  },
+  sell_strangle: {
+    left:  { type:'call', dir:'sell', offset: 2 },
+    right: { type:'put',  dir:'sell', offset: -2 }, // left > right
+  },
+};
+
+// 反转映射: 模板ID → 反转后的模板ID
+const REVERSE_MAP = {
+  bull_call_spread: 'bear_call_spread',
+  bear_call_spread: 'bull_call_spread',
+  bull_put_spread:  'bear_put_spread',
+  bear_put_spread:  'bull_put_spread',
+  straddle:         'sell_straddle',
+  sell_straddle:    'straddle',
+  strangle:         'sell_strangle',
+  sell_strangle:    'strangle',
+};
+// 策略腿: [{id, direction: 'buy'|'sell', type: 'call'|'put', strike, qty, color}]
+let strategyLegs = [];
+let buildCost = 0;
+let clickedXs = [];        // 固定参考线数组
+let hoverX = null;          // 鼠标悬停位置
+
+// 颜色池
+const LEG_COLORS = ['#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#84cc16','#a855f7','#e11d48','#0ea5e9'];
+let colorIdx = 0;
+
+// 模板定义
+const TEMPLATES = [
+  { id: 'bull_call_spread',  name: '牛市看涨价差' },
+  { id: 'bull_put_spread',   name: '牛市看跌价差' },
+  { id: 'bear_call_spread',  name: '熊市看涨价差' },
+  { id: 'bear_put_spread',   name: '熊市看跌价差' },
+  { id: 'straddle',          name: '买跨式' },
+  { id: 'sell_straddle',     name: '卖跨式' },
+  { id: 'strangle',          name: '买宽跨式' },
+  { id: 'sell_strangle',     name: '卖宽跨式' },
+  { id: 'butterfly',         name: '蝶式价差' },
+  { id: 'iron_condor',       name: '铁秃鹰' },
+  { id: 'ratio_spread',      name: '比率价差' },
+  { id: 'custom',            name: '自定义' },
+];
+
+// ========== API 调用 ==========
+async function fetchOptions(underlying, expiry, date) {
+  if (USE_REAL_API) {
+    const resp = await fetch(`${API_BASE}/api/options?underlying=${underlying}&expiry=${expiry}&date=${date}`);
+    const json = await resp.json();
+    if (!json.success) throw new Error(json.error);
+    return json;
+  } else {
+    return await fetchMockOptions(underlying, expiry, date);
+  }
+}
+
+async function fetchExpiries(underlying) {
+  if (USE_REAL_API) {
+    const resp = await fetch(`${API_BASE}/api/expiries?underlying=${underlying}`);
+    return (await resp.json()).data || [];
+  }
+  return getMockExpiries();
+}
+
+async function fetchUnderlyings() {
+  if (USE_REAL_API) {
+    const resp = await fetch(`${API_BASE}/api/underlyings`);
+    return (await resp.json()).data || [];
+  }
+  return getMockUnderlyings();
+}
+
+// ========== 模拟数据（BS公式） ==========
+function cdfNorm(x) {
+  const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const y = Math.abs(x) / Math.sqrt(2);
+  const t = 1/(1+p*y);
+  const e = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-y*y);
+  return 0.5*(1+sign*e);
+}
+function pdfNorm(x) { return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI); }
+
+function bsPrice(S, K, T, r, sigma, isCall) {
+  if (T <= 0) T = 0.001;
+  const d1 = (Math.log(S/K) + (r + sigma*sigma/2)*T) / (sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  if (isCall) {
+    const p = S*cdfNorm(d1) - K*Math.exp(-r*T)*cdfNorm(d2);
+    return { price: Math.max(0.0001, p), delta: cdfNorm(d1), gamma: pdfNorm(d1)/(S*sigma*Math.sqrt(T)) };
+  } else {
+    const p = K*Math.exp(-r*T)*cdfNorm(-d2) - S*cdfNorm(-d1);
+    return { price: Math.max(0.0001, p), delta: cdfNorm(d1)-1, gamma: pdfNorm(d1)/(S*sigma*Math.sqrt(T)) };
+  }
+}
+
+const MOCK_CONFIGS = {
+  '510050': { name: '上证50ETF', mul: 10000, pr: [2.3,3.0], step: 0.05 },
+  '510300': { name: '沪深300ETF', mul: 10000, pr: [3.5,4.5], step: 0.05 },
+  '510500': { name: '中证500ETF', mul: 10000, pr: [5.5,7.5], step: 0.05 },
+  '000852': { name: '中证1000指数', mul: 200, pr: [5600,6800], step: 50 },
+  '000300': { name: '沪深300指数', mul: 200, pr: [3500,4500], step: 50 },
+  'I8888':  { name: '铁矿石', mul: 100, pr: [650,900], step: 10 },
+  'M8888':  { name: '豆粕', mul: 10, pr: [2800,3800], step: 50 },
+  'TA888':  { name: 'PTA', mul: 5, pr: [5000,6500], step: 100 },
+  'MA888':  { name: '甲醇', mul: 10, pr: [2300,3000], step: 50 },
+};
+
+function getMockUnderlyings() {
+  const list = Object.entries(MOCK_CONFIGS).map(([k,v]) => ({ symbol: k, name: v.name, multiplier: v.mul }));
+  // Add real data products (skip duplicates)
+  for (const [k, v] of Object.entries(REAL_STATIC_DATA)) {
+    if (!list.find(x => x.symbol === k)) {
+      list.unshift({ symbol: k, name: v.name + '(真实)', multiplier: v.mul });
+    }
+  }
+  return list;
+}
+
+function getMockExpiries() {
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  return out;
+}
+
+function seededRand(seed) { const x = Math.sin(seed) * 43758.5453; return x - Math.floor(x); }
+
+async function fetchMockOptions(underlying, expiry, date) {
+  // Check real static data first
+  if (REAL_STATIC_DATA[underlying]) {
+    const rd = REAL_STATIC_DATA[underlying];
+    return { success: true, data: rd.options.map(o => ({...o, underlyingPrice: rd.underlyingPrice})), underlyingPrice: rd.underlyingPrice };
+  }
+  const cfg = MOCK_CONFIGS[underlying];
+  if (!cfg) return { success: false, data: [], error: '未知品种' };
+  const [y,m] = expiry.split('-').map(Number);
+  const expiryDate = new Date(y, m, 0);
+  const nowDate = new Date(date || '2026-07-03');
+  const dte = Math.max(1, Math.round((expiryDate - nowDate)/86400000));
+  const mid = (cfg.pr[0]+cfg.pr[1])/2;
+  const seedBase = underlying.charCodeAt(0) + (y||2026)*100 + (m||7);
+  const S_jitter = seededRand(seedBase+1)*0.3 - 0.15;
+  const S = Math.round((mid*(1+S_jitter))/cfg.step)*cfg.step;
+  const iv = 0.16 + seededRand(seedBase+2)*0.12;
+  const atmStrike = Math.round(S/cfg.step)*cfg.step;
+  const strikes = [];
+  const nHalf = 10;
+  for (let i = -nHalf; i <= nHalf; i++) strikes.push(+(atmStrike + i*cfg.step).toFixed(4));
+  const r = 0.02;
+  const T = dte/365;
+  const data = strikes.map(strike => {
+    const call = bsPrice(S, strike, T, r, iv, true);
+    const put = bsPrice(S, strike, T, r, iv, false);
+    return {
+      strike: +strike.toFixed(4),
+      call: { lastPrice: +call.price.toFixed(4), delta: +call.delta.toFixed(2), gamma: +call.gamma.toFixed(4) },
+      put: { lastPrice: +put.price.toFixed(4), delta: +put.delta.toFixed(2), gamma: +put.gamma.toFixed(4) },
+      underlyingPrice: +S.toFixed(4),
+    };
+  });
+  return { success: true, data, underlyingPrice: +S.toFixed(4) };
+}
+
+// ========== 初始化 ==========
+async function init() {
+  renderTemplateChips();
+  await loadUnderlyings();
+  document.getElementById('underlying-select').addEventListener('change', onUnderlyingChange);
+  document.getElementById('load-btn').addEventListener('click', loadQuoteData);
+  document.getElementById('date-input').addEventListener('change', loadQuoteData);
+  document.getElementById('clear-legs-btn').addEventListener('click', clearAllLegs);
+    document.getElementById('reverse-legs-btn').addEventListener('click', reverseLegs);
+  document.getElementById('cost-input').addEventListener('input', onCostChange);
+
+  // 默认加载
+  document.getElementById('underlying-select').value = '510050';
+  await onUnderlyingChange();
+  document.getElementById('date-input').value = '2026-07-03';
+  await loadQuoteData();
+
+  // Canvas 交互
+  const canvas = document.getElementById('payoff-canvas');
+  const tooltip = document.getElementById('chart-tooltip');
+  canvas.addEventListener('mousemove', (e) => onCanvasMouseMove(e, canvas, tooltip));
+  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; hoverX = null; drawChart(); });
+  canvas.addEventListener('mouseup', (e) => onCanvasClick(e, canvas));
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  window.addEventListener('resize', drawChart);
+}
+
+function renderTemplateChips() {
+  const container = document.getElementById('template-chips');
+  TEMPLATES.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (t.id === 'custom' ? ' active' : '');
+    chip.textContent = t.name;
+    chip.dataset.template = t.id;
+    chip.addEventListener('click', () => applyTemplate(t.id));
+    container.appendChild(chip);
+  });
+}
+
+async function loadUnderlyings() {
+  const list = await fetchUnderlyings();
+  const sel = document.getElementById('underlying-select');
+  sel.innerHTML = list.map(u => `<option value="${u.symbol}">${u.symbol} ${u.name}</option>`).join('');
+}
+
+async function onUnderlyingChange() {
+  const underlying = document.getElementById('underlying-select').value;
+  const expiries = await fetchExpiries(underlying);
+  const sel = document.getElementById('expiry-select');
+  sel.innerHTML = expiries.map(e => `<option value="${e}">${e}</option>`).join('');
+  // 更新乘数
+  const list = await fetchUnderlyings();
+  const info = list.find(u => u.symbol === underlying);
+  if (info) multiplier = info.multiplier;
+}
+
+async function loadQuoteData() {
+  const underlying = document.getElementById('underlying-select').value;
+  const expiry = document.getElementById('expiry-select').value;
+  const date = document.getElementById('date-input').value;
+  if (!underlying || !expiry || !date) return;
+
+  try {
+    const result = await fetchOptions(underlying, expiry, date);
+    if (result.success) {
+      quoteData = result.data;
+      underlyingPrice = result.underlyingPrice;
+      document.getElementById('current-date-display').textContent = `${date}  |  标的: ${underlyingPrice?.toFixed(4) || '—'}`;
+      document.getElementById('db-indicator').className = 'db-status';
+      renderQuoteTable();
+      drawChart();
+    }
+  } catch (err) {
+    console.error('加载报价失败:', err);
+    document.getElementById('db-indicator').className = 'db-status disconnected';
+  }
+}
+
+function renderQuoteTable() {
+  const tbody = document.getElementById('quote-tbody');
+  const hintBar = document.getElementById('guide-hint-bar');
+  const thead = document.getElementById('quote-table').querySelector('thead');
+  hintBar.style.display = 'none';
+  if (!quoteData.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">无可选合约</td></tr>';
+    return;
+  }
+
+  const gMode = guideMode;
+  const gCfg = gMode ? TEMPLATE_MODE[gMode] : null;
+  const gLeft = guideLeftStrike;
+  const gRight = guideRightStrike;
+  const strikes_sorted = [...quoteData].sort((a,b) => b.strike - a.strike);
+
+  // --- 表头 ---
+  if (gCfg) {
+    const L = gCfg.left, R = gCfg.right;
+    const leftTag = L.type === 'call' ? 'header-call' : 'header-put';
+    const rightTag = R.type === 'call' ? 'header-call' : 'header-put';
+    const leftDir = L.dir === 'buy' ? '买' : '卖';
+    const rightDir = R.dir === 'buy' ? '买' : '卖';
+    const leftType = L.type.toUpperCase();
+    const rightType = R.type.toUpperCase();
+    thead.innerHTML = `<tr>
+      <th class="${leftTag}">${leftType}价</th>
+      <th class="${leftTag}">Δ</th>
+      <th class="header-${L.type}-act">${leftDir}${leftType}</th>
+      <th>行权价</th>
+      <th class="header-${R.type}-act">${rightDir}${rightType}</th>
+      <th class="${rightTag}">Δ</th>
+      <th class="${rightTag}">${rightType}价</th>
+    </tr>`;
+  } else {
+    thead.innerHTML = `<tr>
+      <th>CALL价</th><th>Δ</th><th>CALL</th><th>行权价</th><th>PUT</th><th>Δ</th><th>PUT价</th>
+    </tr>`;
+  }
+
+  // 约束方向: 同类型通过offset比较, 混合类型通过offset比较, 跨式offset相同=联动
+  const isLinked = gCfg && gCfg.left.offset === gCfg.right.offset && !(gCfg.left.type === gCfg.right.type);
+  const leftGtRight = gCfg ? gCfg.left.offset > gCfg.right.offset : null;
+  const leftLtRight = gCfg ? gCfg.left.offset < gCfg.right.offset : null;
+
+  // --- 渲染行 ---
+  tbody.innerHTML = strikes_sorted.map(row => {
+    const call = row.call;
+    const put = row.put;
+    const s = row.strike;
+    if (!gCfg) {
+      const hasCallLeg = strategyLegs.some(l => l.strike === s && l.type === 'call');
+      const hasPutLeg = strategyLegs.some(l => l.strike === s && l.type === 'put');
+      const customRowClass = (hasCallLeg || hasPutLeg) ? ' class="guide-pick"' : '';
+      return `<tr${customRowClass}>
+        <td class="call-cell"><span class="price">${call ? call.lastPrice.toFixed(4) : '—'}</span></td>
+        <td class="call-cell"><span class="greek">${call ? call.delta.toFixed(2) : '—'}</span></td>
+        <td class="call-cell act-cell">${call ? `<span class="act-btn act-buy" data-type="call" data-strike="${s}">买</span><span class="act-btn act-sell" data-type="call" data-strike="${s}">卖</span>` : ''}</td>
+        <td class="strike-cell">${s}</td>
+        <td class="put-cell act-cell">${put ? `<span class="act-btn act-buy" data-type="put" data-strike="${s}">买</span><span class="act-btn act-sell" data-type="put" data-strike="${s}">卖</span>` : ''}</td>
+        <td class="put-cell"><span class="greek">${put ? put.delta.toFixed(2) : '—'}</span></td>
+        <td class="put-cell"><span class="price">${put ? put.lastPrice.toFixed(4) : '—'}</span></td>
+      </tr>`;
+    }
+
+    const L = gCfg.left, R = gCfg.right;
+    const leftData = L.type === 'call' ? call : put;
+    const rightData = R.type === 'call' ? call : put;
+
+    // 左列禁用判断
+    let leftDisabled = !leftData;
+    if (!leftDisabled && gRight !== null) {
+      if (leftLtRight && s >= gRight) leftDisabled = true;
+      if (leftGtRight && s <= gRight) leftDisabled = true;
+    }
+    const leftBtn = leftData
+      ? `<span class="act-btn act-${L.dir} ${leftDisabled ? 'disabled' : ''} ${gLeft === s ? 'guide-active' : ''}" data-side="left" data-strike="${s}">${L.dir==='buy'?'买':'卖'}</span>`
+      : '';
+
+    // 右列禁用判断
+    let rightDisabled = !rightData;
+    if (!rightDisabled && gLeft !== null) {
+      if (leftLtRight && s <= gLeft) rightDisabled = true;
+      if (leftGtRight && s >= gLeft) rightDisabled = true;
+    }
+    const rightBtn = rightData
+      ? `<span class="act-btn act-${R.dir} ${rightDisabled ? 'disabled' : ''} ${gRight === s ? 'guide-active' : ''}" data-side="right" data-strike="${s}">${R.dir==='buy'?'买':'卖'}</span>`
+      : '';
+
+    // 高亮：引导模式选中的行 + 任意模式存在于策略腿中的行
+    let rowClass = '';
+    if (gCfg && (gLeft === s || gRight === s)) {
+      rowClass = ' class="guide-pick"';
+    }
+    if (!rowClass && gCfg) {
+      // 引导模式: 检查策略腿(可能从自定义手动添加了腿)
+      const matched = strategyLegs.find(l => l.strike === s);
+      if (matched) rowClass = ' class="guide-pick"';
+    }
+
+    return `<tr${rowClass}>
+      <td class="${L.type}-cell"><span class="price">${leftData ? leftData.lastPrice.toFixed(4) : '—'}</span></td>
+      <td class="${L.type}-cell"><span class="greek">${leftData ? leftData.delta.toFixed(2) : '—'}</span></td>
+      <td class="${L.type}-cell act-cell">${leftBtn}</td>
+      <td class="strike-cell">${s}</td>
+      <td class="${R.type}-cell act-cell">${rightBtn}</td>
+      <td class="${R.type}-cell"><span class="greek">${rightData ? rightData.delta.toFixed(2) : '—'}</span></td>
+      <td class="${R.type}-cell"><span class="price">${rightData ? rightData.lastPrice.toFixed(4) : '—'}</span></td>
+    </tr>`;
+  }).join('');
+
+  if (gCfg) {
+    tbody.querySelectorAll('.act-btn:not(.disabled)').forEach(el => {
+      el.addEventListener('click', () => handleGuideClick(el.dataset.side, +el.dataset.strike));
+    });
+  } else {
+    tbody.querySelectorAll('.act-buy').forEach(el => el.addEventListener('click', () => addLeg('buy', el.dataset.type, +el.dataset.strike)));
+    tbody.querySelectorAll('.act-sell').forEach(el => el.addEventListener('click', () => addLeg('sell', el.dataset.type, +el.dataset.strike)));
+  }
+}
+
+// ========== 策略腿管理 ==========
+function addLeg(direction, type, strike) {
+  // 检查是否已有相同腿
+  const existing = strategyLegs.find(l => l.direction === direction && l.type === type && l.strike === strike);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    // 检查相反方向
+    const oppositeDir = direction === 'buy' ? 'sell' : 'buy';
+    const opposite = strategyLegs.find(l => l.direction === oppositeDir && l.type === type && l.strike === strike);
+    if (opposite) {
+      opposite.qty -= 1;
+      if (opposite.qty <= 0) {
+        strategyLegs = strategyLegs.filter(l => l !== opposite);
+      }
+    } else {
+      strategyLegs.push({
+        id: Date.now() + Math.random(),
+        direction, type, strike, qty: 1,
+        color: LEG_COLORS[colorIdx % LEG_COLORS.length],
+      });
+      colorIdx++;
+    }
+  }
+  setActiveTemplate('custom');
+  autoCalcCost();
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+function removeLeg(id) {
+  strategyLegs = strategyLegs.filter(l => l.id !== id);
+  autoCalcCost();
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+function flipLeg(id) {
+  const leg = strategyLegs.find(l => l.id === id);
+  if (!leg) return;
+  leg.direction = leg.direction === 'buy' ? 'sell' : 'buy';
+  // 多腿自动填充模板（蝶式/铁秃鹰/比率价差）→ 切自定义防止错乱
+  const multiLegTpls = ['butterfly', 'iron_condor', 'ratio_spread'];
+  if (!guideMode && multiLegTpls.includes(activeTemplate)) {
+    cancelGuideMode();
+  }
+  autoCalcCost();
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+function changeQty(id, delta) {
+  const leg = strategyLegs.find(l => l.id === id);
+  if (!leg) return;
+  const newQty = Math.max(0, leg.qty + delta);
+  const tpl = guideMode || activeTemplate;
+
+  if (guideMode && TEMPLATE_MODE[guideMode]) {
+    // 2腿模板: 全部相同
+    strategyLegs.forEach(l => { l.qty = newQty; });
+  } else if (tpl === 'butterfly') {
+    // 蝶式 1:2:1 — 改买腿→卖腿=2×买; 改卖腿→买腿=卖/2
+    const buys = strategyLegs.filter(l => l.direction === 'buy');
+    const sell = strategyLegs.find(l => l.direction === 'sell');
+    if (leg.direction === 'buy') {
+      buys.forEach(l => l.qty = newQty);
+      if (sell) sell.qty = newQty * 2;
+    } else {
+      if (sell) sell.qty = newQty;
+      const bq = Math.max(1, Math.round(newQty / 2));
+      buys.forEach(l => l.qty = bq);
+    }
+  } else if (tpl === 'iron_condor') {
+    // 铁秃鹰 1:1:1:1
+    strategyLegs.forEach(l => { l.qty = newQty; });
+  } else {
+    // 自定义/比率价差: 独立
+    leg.qty = newQty;
+  }
+  strategyLegs = strategyLegs.filter(l => l.qty > 0);
+  autoCalcCost();
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+function clearAllLegs() {
+  strategyLegs = [];
+  clickedXs = [];
+  hoverX = null;
+  cancelGuideMode();
+  setActiveTemplate('custom');
+  autoCalcCost();
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+function renderLegsTable() {
+  const tbody = document.getElementById('legs-tbody');
+  if (!strategyLegs.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">点击T型报价的买/卖按钮添加策略腿</td></tr>';
+  } else {
+    tbody.innerHTML = strategyLegs.map(l => `
+      <tr>
+        <td><span class="leg-dot" style="background:${l.color}"></span></td>
+        <td style="color:${l.direction==='buy'?'#166534':'#991b1b'}; font-weight:600;">${l.direction==='buy'?'买': '卖'}</td>
+        <td><span style="color:${l.type==='call'?'var(--call-color)':'var(--put-color)'}; font-weight:500;">${l.type==='call'?'Call':'Put'}</span></td>
+        <td>
+          <div class="qty-ctrl">
+            <button onclick="shiftStrike(${l.id}, -1)">◀</button>
+            <span style="font-weight:600; min-width:50px; text-align:center;">${l.strike}</span>
+            <button onclick="shiftStrike(${l.id}, +1)">▶</button>
+          </div>
+        </td>
+        <td>
+          <div class="qty-ctrl">
+            <button onclick="changeQty(${l.id}, -1)">−</button>
+            <span class="qty-val">${l.qty}</span>
+            <button onclick="changeQty(${l.id}, +1)">+</button>
+          </div>
+        </td>
+        <td>
+          ${guideMode ? '' : `<button class="btn btn-sm" style="background:#f1f5f9;color:#475569;padding:2px 8px;font-size:13px;" onclick="flipLeg(${l.id})">买⇄卖</button> `}
+          <button class="btn btn-sm btn-danger" onclick="removeLeg(${l.id})">删除</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+}
+
+function shiftStrike(id, direction) {
+  const leg = strategyLegs.find(l => l.id === id);
+  if (!leg || !quoteData.length) return;
+  const strikes = [...new Set(quoteData.map(r => r.strike))].sort((a,b)=>a-b);
+  const idx = strikes.indexOf(leg.strike);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= strikes.length) return;
+  leg.strike = strikes[newIdx];
+  setActiveTemplate('custom');
+  autoCalcCost();
+  renderLegsTable();
+  drawChart();
+}
+
+function onCostChange() {
+  buildCost = parseFloat(document.getElementById('cost-input').value) || 0;
+  updateCostPreview(underlyingPrice);
+  drawChart();
+}
+
+function updateCostPreview(S) {
+  const preview = document.getElementById('cost-preview');
+  if (!S || !strategyLegs.length) {
+    preview.textContent = '';
+    return;
+  }
+  const value = calcPayoff(S);
+  const pnl = value - buildCost;
+  preview.innerHTML = `<strong>@${S.toFixed(4)}</strong> 到期价值: <strong>${value.toFixed(2)}元</strong> | 扣除成本盈亏: <strong style="color:${pnl>=0?'#16a34a':'#dc2626'}">${pnl>=0?'+':''}${pnl.toFixed(2)}元</strong>`;
+}
+
+// ========== 损益计算 ==========
+function calcPayoff(S) {
+  let total = 0;
+  for (const leg of strategyLegs) {
+    const sign = leg.direction === 'buy' ? 1 : -1;
+    const intrinsic = leg.type === 'call'
+      ? Math.max(0, S - leg.strike)
+      : Math.max(0, leg.strike - S);
+    total += sign * intrinsic * leg.qty * multiplier;
+  }
+  return total;
+}
+
+// ========== 策略模板 ==========
+function setActiveTemplate(id) {
+  activeTemplate = id;
+  document.querySelectorAll('#template-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.template === id);
+  });
+}
+
+function applyTemplate(id) {
+  cancelGuideMode();
+  setActiveTemplate(id);
+  if (id === 'custom') return;
+  if (!underlyingPrice || !quoteData.length) return;
+
+  const strikes = quoteData.map(r => r.strike);
+  const S = underlyingPrice;
+  const atmStrike = strikes.reduce((prev, curr) => Math.abs(curr - S) < Math.abs(prev - S) ? curr : prev);
+  const atmIdx = strikes.indexOf(atmStrike);
+  const getStrike = (offset) => strikes[Math.min(strikes.length-1, Math.max(0, atmIdx + offset))];
+
+  // 有交互配置的模板 → 进入引导模式
+  if (TEMPLATE_MODE[id]) {
+    const cfg = TEMPLATE_MODE[id];
+    guideMode = id;
+    guideLeftStrike = getStrike(cfg.left.offset);
+    guideRightStrike = getStrike(cfg.right.offset);
+    syncGuideLegs();
+    renderLegsTable();
+    renderQuoteTable();
+    drawChart();
+    return;
+  }
+
+  // 多腿模板 → 自动填充
+  strategyLegs = [];
+  colorIdx = 0;
+
+  switch (id) {
+    case 'butterfly': {
+      const K1 = getStrike(-2), K2 = atmStrike, K3 = getStrike(2);
+      strategyLegs.push(makeLeg('buy','call',K1,1));
+      strategyLegs.push(makeLeg('sell','call',K2,2));
+      strategyLegs.push(makeLeg('buy','call',K3,1));
+      break;
+    }
+    case 'iron_condor': {
+      strategyLegs.push(makeLeg('buy','put',getStrike(-3)));
+      strategyLegs.push(makeLeg('sell','put',getStrike(-1)));
+      strategyLegs.push(makeLeg('sell','call',getStrike(1)));
+      strategyLegs.push(makeLeg('buy','call',getStrike(3)));
+      break;
+    }
+    case 'ratio_spread': {
+      strategyLegs.push(makeLeg('buy','call',atmStrike,1));
+      strategyLegs.push(makeLeg('sell','call',getStrike(3),2));
+      break;
+    }
+  }
+  autoCalcCost();
+  renderLegsTable();
+  drawChart();
+}
+
+function cancelGuideMode() {
+  guideMode = null;
+  guideLeftStrike = null;
+  guideRightStrike = null;
+  setActiveTemplate('custom');
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+// 将guideLeftStrike/guideRightStrike同步到strategyLegs
+function syncGuideLegs() {
+  if (!guideMode) return;
+  const cfg = TEMPLATE_MODE[guideMode];
+  if (!cfg) return;
+  strategyLegs = [];
+  colorIdx = 0;
+  if (guideLeftStrike !== null) {
+    strategyLegs.push(makeLeg(cfg.left.dir, cfg.left.type, guideLeftStrike));
+  }
+  if (guideRightStrike !== null) {
+    strategyLegs.push(makeLeg(cfg.right.dir, cfg.right.type, guideRightStrike));
+  }
+  autoCalcCost();
+}
+
+// 引导模式下处理点击: side = 'left' | 'right'
+function handleGuideClick(side, strike) {
+  if (!guideMode) return;
+  const cfg = TEMPLATE_MODE[guideMode];
+  if (!cfg) return;
+
+  // 跨式/卖跨式 → 联动
+  const isLinked = cfg.left.type !== cfg.right.type && cfg.left.offset === cfg.right.offset;
+
+  if (side === 'left') {
+    guideLeftStrike = strike;
+    if (isLinked) guideRightStrike = strike;
+  } else if (side === 'right') {
+    guideRightStrike = strike;
+    if (isLinked) guideLeftStrike = strike;
+  }
+  syncGuideLegs();
+  renderQuoteTable();
+  renderLegsTable();
+  drawChart();
+}
+
+// 一键反转：买卖方向互换
+function reverseLegs() {
+  if (!strategyLegs.length) return;
+  strategyLegs.forEach(l => {
+    l.direction = l.direction === 'buy' ? 'sell' : 'buy';
+  });
+  // 切换对应模板
+  if (guideMode && REVERSE_MAP[guideMode]) {
+    const newMode = REVERSE_MAP[guideMode];
+    guideMode = newMode;
+    setActiveTemplate(newMode);
+    // 保持行权价不变
+  } else if (activeTemplate && REVERSE_MAP[activeTemplate]) {
+    const newMode = REVERSE_MAP[activeTemplate];
+    guideMode = newMode;
+    setActiveTemplate(newMode);
+  } else {
+    guideMode = null;
+    guideLeftStrike = null;
+    guideRightStrike = null;
+    setActiveTemplate('custom');
+    renderQuoteTable();
+  }
+  autoCalcCost();
+  renderLegsTable();
+  renderQuoteTable();
+  drawChart();
+}
+
+function makeLeg(direction, type, strike, qty = 1) {
+  const leg = {
+    id: Date.now() + Math.random() + colorIdx,
+    direction, type, strike, qty,
+    color: LEG_COLORS[colorIdx % LEG_COLORS.length],
+  };
+  colorIdx++;
+  return leg;
+}
+
+// ========== 自动计算建仓成本 ==========
+function autoCalcCost() {
+  if (!quoteData.length || !strategyLegs.length) {
+    if (!strategyLegs.length) {
+      document.getElementById('cost-input').value = '0.00';
+      buildCost = 0;
+    }
+    return;
+  }
+  let totalCost = 0;
+  for (const leg of strategyLegs) {
+    const row = quoteData.find(r => Math.abs(r.strike - leg.strike) < 0.001);
+    if (!row) continue;
+    const optData = leg.type === 'call' ? row.call : row.put;
+    if (!optData || optData.lastPrice == null) continue;
+    const price = optData.lastPrice;
+    // 买=支付权利金(正成本), 卖=收取权利金(负成本)
+    const sign = leg.direction === 'buy' ? 1 : -1;
+    totalCost += sign * price * leg.qty * multiplier;
+  }
+  document.getElementById('cost-input').value = totalCost.toFixed(2);
+  buildCost = totalCost;
+  updateCostPreview(underlyingPrice);
+}
+
+// ========== Canvas 点击 ==========
+function onCanvasClick(e, canvas) {
+  if (!strategyLegs.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const w = rect.width;
+  const margin = { top: 50, right: 30, bottom: 70, left: 80 };
+  const pw = w - margin.left - margin.right;
+  const allStrikes = strategyLegs.map(l => l.strike);
+  const padding = 0.35;
+  let xMin = Math.min(...allStrikes), xMax = Math.max(...allStrikes);
+  const xRange = xMax - xMin || (xMin * 0.1);
+  xMin -= xRange * padding; xMax += xRange * padding;
+  const xVal = xMin + (mx - margin.left) / pw * (xMax - xMin);
+  if (mx < margin.left || mx > margin.left + pw) return;
+
+  // 右键：删除最近的固定线
+  if (e.button === 2) {
+    e.preventDefault();
+    let bestIdx = -1, bestDist = Infinity;
+    clickedXs.forEach((cx, i) => {
+      const d = Math.abs(cx - xVal);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    // 距离阈值：当前X范围1%
+    if (bestIdx >= 0 && bestDist < (xMax - xMin) * 0.02) {
+      clickedXs.splice(bestIdx, 1);
+    }
+  } else {
+    // 左键：添加固定线（去重）
+    const tooClose = clickedXs.some(cx => Math.abs(cx - xVal) < (xMax - xMin) * 0.005);
+    if (!tooClose) clickedXs.push(xVal);
+  }
+  drawChart();
+}
+
+// ========== Canvas 绘图 ==========
+function drawChart() {
+  const canvas = document.getElementById('payoff-canvas');
+  const wrap = canvas.parentElement;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  if (!strategyLegs.length) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('请选择策略腿以查看损益图', w/2, h/2);
+    return;
+  }
+
+  // 确定X轴范围
+  const allStrikes = strategyLegs.map(l => l.strike);
+  const padding = 0.35;
+  let xMin = Math.min(...allStrikes);
+  let xMax = Math.max(...allStrikes);
+  const xRange = xMax - xMin || (xMin * 0.1);
+  xMin -= xRange * padding;
+  xMax += xRange * padding;
+
+  // 采样损益曲线
+  const samples = 400;
+  const xs = [], combos = [], legsData = [];
+  for (let i = 0; i <= samples; i++) {
+    const x = xMin + (xMax - xMin) * i / samples;
+    xs.push(x);
+    combos.push(calcPayoff(x));
+  }
+  for (const leg of strategyLegs) {
+    const data = [];
+    for (let i = 0; i <= samples; i++) {
+      const S = xs[i];
+      const sign = leg.direction === 'buy' ? 1 : -1;
+      const intrinsic = leg.type === 'call' ? Math.max(0, S - leg.strike) : Math.max(0, leg.strike - S);
+      data.push(sign * intrinsic * leg.qty * multiplier);
+    }
+    legsData.push(data);
+  }
+
+  // Y轴范围 — 组合+各腿都要覆盖
+  let yMin = Infinity, yMax = -Infinity;
+  for (const v of combos) {
+    if (v < yMin) yMin = v;
+    if (v > yMax) yMax = v;
+  }
+  for (const data of legsData) {
+    for (const v of data) {
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+  }
+  const yRange = yMax - yMin || 1;
+  yMin -= yRange * 0.4;
+  yMax += yRange * 0.4;
+
+  // 绘图区域
+  const margin = { top: 50, right: 30, bottom: 70, left: 80 };
+  const pw = w - margin.left - margin.right;
+  const ph = h - margin.top - margin.bottom;
+
+  const toX = (x) => margin.left + (x - xMin) / (xMax - xMin) * pw;
+  const toY = (y) => margin.top + (yMax - y) / (yMax - yMin) * ph;
+
+  // 计算nice Y刻度（网格线和标签公用）
+  const yTicks = 6, xTicks = 5;
+  const rawSpan = yMax - yMin;
+  const step = rawSpan / yTicks;
+  const mag = Math.pow(10, Math.floor(Math.log10(step)));
+  const residual = step / mag;
+  const niceStep = residual <= 1 ? mag : residual <= 2 ? 2*mag : residual <= 5 ? 5*mag : 10*mag;
+  const niceMin = Math.ceil(yMin / niceStep) * niceStep;
+  const niceMax = Math.floor(yMax / niceStep) * niceStep;
+  const niceYs = [];
+  for (let y = niceMin; y <= niceMax + niceStep/2; y += niceStep) {
+    const sy = toY(y);
+    if (sy >= margin.top - 5 && sy <= margin.top + ph + 5) niceYs.push(y);
+  }
+
+  // 网格
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([]);
+  for (const y of niceYs) {
+    ctx.beginPath();
+    ctx.moveTo(margin.left, toY(y));
+    ctx.lineTo(margin.left + pw, toY(y));
+    ctx.stroke();
+  }
+  for (let i = 0; i <= xTicks; i++) {
+    const x = xMin + (xMax - xMin) * i / xTicks;
+    ctx.beginPath();
+    ctx.moveTo(toX(x), margin.top);
+    ctx.lineTo(toX(x), margin.top + ph);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // 零线
+  if (yMin <= 0 && yMax >= 0) {
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, toY(0));
+    ctx.lineTo(margin.left + pw, toY(0));
+    ctx.stroke();
+    ctx.fillStyle = '#64748b';
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('0', margin.left - 4, toY(0) + 4);
+  }
+
+  // 当前价参考线
+  if (underlyingPrice) {
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(toX(underlyingPrice), margin.top);
+    ctx.lineTo(toX(underlyingPrice), margin.top + ph);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    const labelX = toX(underlyingPrice);
+    // 调整标签位置避免越界
+    const labelText = `当前价 ${underlyingPrice.toFixed(4)}`;
+    const textW = ctx.measureText(labelText).width;
+    let labelPosX = labelX;
+    if (labelX - textW/2 < margin.left) labelPosX = margin.left + textW/2;
+    if (labelX + textW/2 > margin.left + pw) labelPosX = margin.left + pw - textW/2;
+    ctx.fillText(labelText, labelPosX, margin.top - 4);
+  }
+
+  // 辅助函数：画一条参考线 + 标注
+  function drawRefLine(xVal, style, lineW, dash, showLabels = true) {
+    const cx = toX(xVal);
+    if (cx < margin.left || cx > margin.left + pw) return;
+    ctx.strokeStyle = style;
+    ctx.lineWidth = lineW;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(cx, margin.top);
+    ctx.lineTo(cx, margin.top + ph);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (!showLabels) return;
+
+    // 右侧空间不足时文字放左边
+    ctx.font = 'bold 17px sans-serif';
+    const rightSpace = margin.left + pw - cx;
+    const needWidth = 220; // 最宽标签约200px
+    const isRight = rightSpace > needWidth;
+    ctx.textAlign = isRight ? 'left' : 'right';
+    const lx = isRight ? cx + 6 : cx - 6;
+
+    let labelY = margin.top + 16;
+    const comboVal = calcPayoff(xVal);
+    const pnlVal = comboVal - buildCost;
+
+    ctx.fillStyle = '#2563eb';
+    ctx.fillText(`到期价值: ${comboVal.toFixed(0)}元`, lx, labelY);
+    labelY += 18;
+    if (buildCost) {
+      ctx.fillStyle = pnlVal >= 0 ? '#22c55e' : '#ef4444';
+      ctx.fillText(`扣除成本: ${pnlVal>=0?'+':''}${pnlVal.toFixed(0)}元`, lx, labelY);
+      labelY += 18;
+    }
+    for (const leg of strategyLegs) {
+      const sign = leg.direction === 'buy' ? 1 : -1;
+      const intrinsic = leg.type === 'call' ? Math.max(0, xVal - leg.strike) : Math.max(0, leg.strike - xVal);
+      const val = sign * intrinsic * leg.qty * multiplier;
+      ctx.fillStyle = leg.color;
+      const dirText = leg.direction === 'buy' ? '买' : '卖';
+      const typeText = leg.type === 'call' ? 'Call' : 'Put';
+      ctx.fillText(`${dirText}${leg.qty}${typeText} @${leg.strike}  → ${val.toFixed(0)}元`, lx, labelY);
+      labelY += 18;
+    }
+  }
+
+  // 悬停线: 蓝色虚线 2px（无标注文字）
+  if (hoverX !== null) {
+    drawRefLine(hoverX, '#3b82f6', 2, [6, 4], false);
+    ctx.fillStyle = '#3b82f6';
+    ctx.font = 'bold 17px sans-serif';
+    ctx.textAlign = 'center';
+    const hx = toX(hoverX);
+    if (hx >= margin.left && hx <= margin.left + pw) {
+      ctx.fillText(`${hoverX.toFixed(4)}`, hx, margin.top + ph + 18);
+    }
+  }
+
+  // 固定线: 橙色粗虚线 3px
+  for (const xVal of clickedXs) {
+    drawRefLine(xVal, '#f97316', 3, [8, 4]);
+  }
+  // 固定线X标注（画在底部，错开防重叠）
+  ctx.font = 'bold 17px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f97316';
+  const sortedXs = [...clickedXs].sort((a,b)=>a-b);
+  let bottomY = margin.top + ph + 36;
+  for (const xVal of sortedXs) {
+    const cx = toX(xVal);
+    if (cx >= margin.left && cx <= margin.left + pw) {
+      ctx.fillText(`${xVal.toFixed(4)}`, cx, bottomY);
+    }
+  }
+
+  // 坐标轴
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top);
+  ctx.lineTo(margin.left, margin.top + ph);
+  ctx.lineTo(margin.left + pw, margin.top + ph);
+  ctx.stroke();
+
+  // Y轴标签
+  ctx.fillStyle = '#64748b';
+  ctx.font = '20px sans-serif';
+  ctx.textAlign = 'right';
+  for (const y of niceYs) {
+    ctx.fillText(y.toFixed(0), margin.left - 4, toY(y) + 3);
+  }
+
+  // X轴标签
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= xTicks; i++) {
+    const x = xMin + (xMax - xMin) * i / xTicks;
+    ctx.fillText(x.toFixed(2), toX(x), margin.top + ph + 25);
+  }
+
+  // 绘制各腿虚线
+  for (let i = 0; i < strategyLegs.length; i++) {
+    const data = legsData[i];
+    const color = strategyLegs[i].color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.0;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    let started = false;
+    for (let j = 0; j <= samples; j++) {
+      const sx = toX(xs[j]), sy = toY(data[j]);
+      if (sy < margin.top || sy > margin.top + ph) { started = false; continue; }
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // 绘制组合曲线（实线+阴影）
+  ctx.save();
+  ctx.shadowColor = 'rgba(37,99,235,0.3)';
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  let started2 = false;
+  for (let j = 0; j <= samples; j++) {
+    const sx = toX(xs[j]), sy = toY(combos[j]);
+    if (sy < margin.top || sy > margin.top + ph) { started2 = false; continue; }
+    if (!started2) { ctx.moveTo(sx, sy); started2 = true; }
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // 裁剪区域
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(margin.left, margin.top, pw, ph);
+  ctx.clip();
+
+  // 特征标注：拐点（红点）和斜率标签
+  // 标注碰撞检测：记录已放置标签的边界框，新标签重叠则上下偏移
+  const placedLabels = [];
+  function checkOverlap(x, y, text, font) {
+    ctx.font = font;
+    const tw = ctx.measureText(text).width;
+    const th = 22;
+    const box = { left: x - tw/2 - 4, right: x + tw/2 + 4, top: y - th/2, bottom: y + th/2 };
+    for (const pl of placedLabels) {
+      if (box.left < pl.right && box.right > pl.left && box.top < pl.bottom && box.bottom > pl.top) {
+        return true;
+      }
+    }
+    placedLabels.push(box);
+    return false;
+  }
+
+  const inflectionPoints = findInflectionPoints(xs, combos);
+  for (const pt of inflectionPoints) {
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(toX(pt.x), toY(pt.y), 4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'italic 20px sans-serif';
+    ctx.textAlign = 'center';
+    let labelY = toY(pt.y) - 18;
+    if (labelY <= margin.top + 12) labelY = toY(pt.y) + 28;
+    // 碰撞避让
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (!checkOverlap(toX(pt.x), labelY, pt.label, 'italic 20px sans-serif')) break;
+      labelY -= 24;
+    }
+    ctx.fillText(pt.label, toX(pt.x), labelY);
+  }
+
+  // 斜率标签
+  const slopeLabels = findSlopeLabels(xs, combos, inflectionPoints);
+  for (const sl of slopeLabels) {
+    ctx.fillStyle = '#dc2626';
+    ctx.font = 'italic 20px sans-serif';
+    ctx.textAlign = 'center';
+    const sx = toX(sl.x);
+    let sy = toY(sl.y) - 14;
+    if (sy <= margin.top + 10) sy = toY(sl.y) + 24;
+    if (sy < margin.top + ph - 10) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (!checkOverlap(sx, sy, sl.label, 'italic 20px sans-serif')) break;
+        sy -= 24;
+      }
+      ctx.fillText(sl.label, sx, sy);
+    }
+  }
+
+  // 平坦区域标注
+  const flatRegions = findFlatRegions(xs, combos);
+  for (const fr of flatRegions) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '20px sans-serif';
+    ctx.textAlign = 'center';
+    const sx = toX(fr.x);
+    let sy = toY(fr.y) + 20;
+    if (sy > margin.top + ph - 10) sy = toY(fr.y) - 14;
+    if (sy > margin.top + 10 && sy < margin.top + ph - 10) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (!checkOverlap(sx, sy, fr.label, '20px sans-serif')) break;
+        sy += 24;
+      }
+      ctx.fillText(fr.label, sx, sy);
+    }
+  }
+
+  ctx.restore(); // 裁剪结束
+
+  // 图例已删除
+}
+
+function findInflectionPoints(xs, combos) {
+  const points = [];
+  const eps = 0.001;
+  for (let i = 1; i < xs.length - 1; i++) {
+    const dy1 = (combos[i] - combos[i-1]) / (xs[i] - xs[i-1]);
+    const dy2 = (combos[i+1] - combos[i]) / (xs[i+1] - xs[i]);
+    const dy3 = i+2 < xs.length ? (combos[i+2] - combos[i+1]) / (xs[i+2] - xs[i+1]) : dy2;
+    if (Math.abs(dy2 - dy1) > eps) {
+      // 判断类型
+      let label = `@${xs[i].toFixed(2)}`;
+      if (Math.abs(dy1) < eps && Math.abs(dy2) > eps) label += ' → 起涨';
+      else if (Math.abs(dy1) > eps && Math.abs(dy2) < eps) label += ' → 变平';
+      else label += ' → 拐点';
+      points.push({ x: xs[i], y: combos[i], label });
+      // 跳过相近点
+      if (i + 3 < xs.length) i += 2;
+    }
+  }
+  // 去重：合并距离很近的拐点
+  return points.filter((p, idx, arr) => {
+    if (idx === 0) return true;
+    return Math.abs(p.x - arr[idx-1].x) > (xs[xs.length-1] - xs[0]) * 0.03;
+  });
+}
+
+function findSlopeLabels(xs, combos, inflectionPoints) {
+  const labels = [];
+  // 分割区间
+  const breakPoints = [0];
+  for (const pt of inflectionPoints) {
+    const idx = xs.findIndex(x => x >= pt.x);
+    if (idx > 0 && idx < xs.length - 1) breakPoints.push(idx);
+  }
+  breakPoints.push(xs.length - 1);
+  breakPoints.sort((a,b)=>a-b);
+  const unique = [...new Set(breakPoints)];
+  
+  for (let i = 0; i < unique.length - 1; i++) {
+    const a = unique[i], b = unique[i+1];
+    if (b - a < 3) continue;
+    const mid = Math.floor((a + b) / 2);
+    const midPrice = xs[mid];
+    
+    // 直接从腿计算理论斜率（不需要采样）
+    let theoSlope = 0;
+    for (const leg of strategyLegs) {
+      const isITM = leg.type === 'call' ? midPrice > leg.strike : midPrice < leg.strike;
+      if (!isITM) continue;
+      const sign = leg.direction === 'buy' ? 1 : -1;
+      theoSlope += sign * leg.qty * multiplier;
+    }
+    
+    if (Math.abs(theoSlope) < 0.5) continue; // 平坦，跳过
+    const text = `斜率=${theoSlope >= 0 ? '+' : ''}${theoSlope.toFixed(0)}/元`;
+    labels.push({ x: midPrice, y: combos[mid], label: text });
+  }
+  return labels;
+}
+
+function findFlatRegions(xs, combos) {
+  const regions = [];
+  const eps = 0.01;
+  let flatStart = 0;
+  for (let i = 1; i <= xs.length; i++) {
+    const dy = i < xs.length ? Math.abs(combos[i] - combos[i-1]) / (xs[i] - xs[i-1]) : 999;
+    const isFlat = dy < eps;
+    if (!isFlat || i === xs.length) {
+      if (i - flatStart > 30) { // 至少30个采样点才算平坦
+        const mid = Math.floor((flatStart + i - 1) / 2);
+        const val = combos[mid];
+        const label = val >= 0 ? `价值封顶@${val.toFixed(0)}元` : `价值保底@${val.toFixed(0)}元`;
+        regions.push({ x: xs[mid], y: combos[mid], label });
+      }
+      flatStart = i;
+    }
+  }
+  return regions;
+}
+
+// ========== Canvas 鼠标交互 ==========
+function onCanvasMouseMove(e, canvas, tooltip) {
+  if (!strategyLegs.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const w = rect.width, h = rect.height;
+
+  const margin = { top: 50, right: 30, bottom: 70, left: 80 };
+  const pw = w - margin.left - margin.right;
+
+  const allStrikes = strategyLegs.map(l => l.strike);
+  const padding = 0.35;
+  let xMin = Math.min(...allStrikes);
+  let xMax = Math.max(...allStrikes);
+  const xRange = xMax - xMin || (xMin * 0.1);
+  xMin -= xRange * padding;
+  xMax += xRange * padding;
+
+  const S = xMin + (mx - margin.left) / pw * (xMax - xMin);
+  if (isNaN(S) || mx < margin.left || mx > margin.left + pw) {
+    hoverX = null;
+    tooltip.style.display = 'none';
+    drawChart();
+    return;
+  }
+
+  hoverX = S;
+  const value = calcPayoff(S);
+  const pnl = value - buildCost;
+
+  tooltip.style.display = 'block';
+  tooltip.style.left = (mx + 12) + 'px';
+  tooltip.style.top = (my - 40) + 'px';
+  tooltip.innerHTML = `标的价格: <strong>${S.toFixed(4)}</strong><br>到期价值: <strong>${value.toFixed(2)}元</strong>${buildCost ? '<br>扣除成本盈亏: <strong style="color:'+(pnl>=0?'#22c55e':'#ef4444')+'">'+(pnl>=0?'+':'')+pnl.toFixed(2)+'元</strong>' : ''}`;
+
+  updateCostPreview(S);
+  drawChart();
+}
+
+// ========== 启动 ==========
+init();
+</script>
+</body>
+</html>
