@@ -647,7 +647,7 @@ function snapStatus(){
   const F = document.getElementById('snap-fetched'); if(!F) return;
   const n = Object.values(SNAPSHOT_SKELETON.products).filter(v=>v.verified).length;
   const d = SNAPSHOT_SKELETON.trade_date;
-  F.textContent = `快照 ${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} 收盘 · ${n} 个品种（每日由 GitHub Actions 自动更新）`;
+  F.textContent = `快照 ${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} 收盘 · ${n} 个品种（更新：点右侧按钮触发 GitHub Actions）`;
 }
 function updateSnapHint(){
   const el = document.getElementById('snap-hint'); if(!el) return;
