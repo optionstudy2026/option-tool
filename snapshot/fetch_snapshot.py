@@ -5,6 +5,7 @@ key 从环境变量 HITHINK_KEY 读（GitHub Secret）；本地测试可用 --ke
 """
 import argparse, json, os, re, sqlite3, statistics, sys, time
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 import requests
 
 ap = argparse.ArgumentParser()
@@ -23,6 +24,17 @@ if not KEY:
 H = {"X-api-key": KEY}
 BASE = "https://fuyao.aicubes.cn"
 R = 0.02
+TZ = ZoneInfo("Asia/Shanghai")     # CI runner 是 UTC：不做时区换算会把 9/11 的日K 当 9/10，把夜盘（归下一交易日）当当天
+MARKET_CLOSE_MIN = 15*60 + 30      # 15:30 后当天日K 才算完整
+
+def sh_now():
+    return datetime.now(TZ)
+def row_date(ts):
+    return datetime.fromtimestamp(ts/1000, TZ).date()
+def acceptable(d, today, closed):
+    """只接受真正的交易日行：工作日，且当天必须已收盘（排除夜盘归下一交易日的行）"""
+    if d.weekday() >= 5: return False
+    return (d < today) or (d == today and closed)
 
 import math
 def N(x): return 0.5*(1+math.erf(x/math.sqrt(2)))
@@ -71,7 +83,7 @@ sk = json.loads(m.group(1))
 old_date = sk.get("trade_date")
 print("骨架交易日:", old_date, "| 品种:", len(sk["products"]))
 
-today = date.today()
+now = sh_now(); today = now.date(); closed = (now.hour*60 + now.minute) >= MARKET_CLOSE_MIN
 jobs = []
 for p, info in sk["products"].items():
     if not info.get("verified"): continue
@@ -96,10 +108,10 @@ def one(job):
     px = dt = None
     if j.get("code") == 0:
         items = (j.get("data") or {}).get("item") or []
-        use = [x for x in items if x.get("timestamp") and datetime.fromtimestamp(x["timestamp"]/1000).date() <= today]
+        use = [x for x in items if x.get("timestamp") and acceptable(row_date(x["timestamp"]), today, closed)]
         if use:
             last = use[-1]
-            px = last.get("close_price"); dt = datetime.fromtimestamp(last["timestamp"]/1000).date().isoformat()
+            px = last.get("close_price"); dt = row_date(last["timestamp"]).isoformat()
     with lock:
         res[(p, K, cp)] = (px, dt)
     time.sleep(a.gap)
@@ -109,8 +121,8 @@ dates = [v[1] for v in res.values() if v[1]]
 new_date = max(dates) if dates else None
 ok = sum(1 for v in res.values() if v[0] is not None)
 print(f"抓取完成：成功 {ok}/{len(jobs)}，最新行情日 {new_date}")
-if new_date and new_date.replace("-", "") == str(old_date):
-    print("没有新交易日（行情日与骨架相同）→ 不动页面，退出")
+if (not new_date) or new_date.replace("-", "") <= str(old_date):
+    print(f"没有更新交易日（抓到的行情日 {new_date}，骨架 {old_date}）→ 不动页面，退出")
     sys.exit(0)
 
 # 标的价：商品取期货收盘
@@ -119,7 +131,7 @@ for p, info in sk["products"].items():
     fut = f"{p}{info['expiry'][2:]}." + {"DCE": "DCE", "SHFE": "SHF", "INE": "INE", "CZCE": "CZC", "GFEX": "GFE"}.get(info.get("exchange"), "DCE")
     j = api("/api/futures/prices/daily", thscode=fut)
     items = (j.get("data") or {}).get("item") or []
-    use = [x for x in items if x.get("timestamp") and datetime.fromtimestamp(x["timestamp"]/1000).date() <= today]
+    use = [x for x in items if x.get("timestamp") and acceptable(row_date(x["timestamp"]), today, closed)]
     if use:
         info["underlying_close"] = use[-1].get("close_price") or use[-1].get("settle_price") or info.get("underlying_close")
         info["forward"] = info["underlying_close"]
