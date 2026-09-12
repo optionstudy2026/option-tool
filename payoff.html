@@ -3194,13 +3194,19 @@ async function init(){
   if(!uSel.value && uSel.options.length) uSel.value = uSel.options[0].value;
   await onUnderlyingChange();
   // 日期：用行情库最新交易日（原写死 2026-07-03，页头会显示错误日期）
+  const dInp = document.getElementById('date-input');
   try {
     const r = await fetch('/api/latest-date');
     const j = await r.json();
     if(j && j.date && /^\d{8}$/.test(j.date)){
-      document.getElementById('date-input').value = j.date.slice(0,4)+'-'+j.date.slice(4,6)+'-'+j.date.slice(6,8);
+      dInp.value = j.date.slice(0,4)+'-'+j.date.slice(4,6)+'-'+j.date.slice(6,8);
     }
   } catch(e) { /* API 不可用时保留输入框原值 */ }
+  // 兜底：没有 /api（如 GitHub Pages 线上版）时日期为空 → loadQuoteData 会早退 → 首屏空图表
+  if(!dInp.value){
+    const now = new Date();
+    dInp.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
   await loadQuoteData();
   initSmileInteractions();
 
