@@ -29,6 +29,7 @@ def N(x): return 0.5*(1+math.erf(x/math.sqrt(2)))
 def b76(F, K, T, r, s, is_call):
     d1=(math.log(F/K)+0.5*s*s*T)/(s*math.sqrt(T)); d2=d1-s*math.sqrt(T); df=math.exp(-r*T)
     return df*(F*N(d1)-K*N(d2)) if is_call else df*(K*N(-d2)-F*N(-d1))
+IV_CAP = 3.0   # 超过 300% 视为深实/深虚失真，置空（避免污染微笑拟合）
 def ivsolve(price, F, K, T, is_call, r=R):
     if not price or not F or not K or T <= 0: return None
     if price <= b76(F,K,T,r,1e-6,is_call)+1e-9: return None
@@ -38,7 +39,8 @@ def ivsolve(price, F, K, T, is_call, r=R):
         m = (lo+hi)/2
         if b76(F,K,T,r,m,is_call) < price: lo = m
         else: hi = m
-    return (lo+hi)/2
+    v = (lo+hi)/2
+    return None if v > IV_CAP else v
 def tdays(d0, d1):
     n, d = 0, d0 + timedelta(days=1)
     while d <= d1:
