@@ -14,6 +14,7 @@ ap.add_argument("--key-file", default="/home/ubuntu/quant/账户密码.db", help
 ap.add_argument("--concurrency", type=int, default=4)
 ap.add_argument("--gap", type=float, default=0.25)
 ap.add_argument("--dry-run", action="store_true")
+ap.add_argument("--force", action="store_true", help="即使行情日未更新也强制写出 snapshot.json（手动触发重生成用，例如补全 puts_px 字段）")
 ap.add_argument("--out", default="snapshot.json", help="输出的快照 JSON 路径（同源托管，页面拉取；不参与页面源码）")
 a = ap.parse_args()
 
@@ -128,9 +129,11 @@ dates = [v[1] for v in res.values() if v[1]]
 new_date = max(dates) if dates else None
 ok = sum(1 for v in res.values() if v[0] is not None)
 print(f"抓取完成：成功 {ok}/{len(jobs)}，最新行情日 {new_date}")
-if (not new_date) or new_date.replace("-", "") <= str(old_date):
+if not a.force and ((not new_date) or new_date.replace("-", "") <= str(old_date)):
     print(f"没有更新交易日（抓到的行情日 {new_date}，骨架 {old_date}）→ 不动页面，退出")
     sys.exit(0)
+if a.force:
+    print(f"--force：强制重新生成 snapshot.json（抓到的行情日 {new_date}）")
 
 # 标的价：商品取期货收盘
 for p, info in sk["products"].items():
