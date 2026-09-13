@@ -689,7 +689,7 @@ function snapInitUI(){
       const ok = await refreshSnapshot(true);
       SNAP_SOURCE = ok ? '在线快照(snapshot.json)' : SNAP_SOURCE;
       snapStatus(); updateSnapHint();
-      try { await onUnderlyingChange(); } catch(err) {}
+      try { await onUnderlyingChange(); await loadQuoteData(); } catch(err) {}
       a.textContent = old; a.style.opacity = '1';
     };
   }
@@ -2021,14 +2021,16 @@ function drawSmileBig(cv, s) {
   const kMin = Math.log(K_MIN / underlyingPrice), kMax = Math.log(K_MAX / underlyingPrice);
   // 纵轴 IV 范围：固定标尺（不随 IV 滑块缩放）。
   // 否则整体抬升 IV 时曲线上移、纵轴也同步放大，曲线形状看似"纹丝不动"。
-  // 固定上限仅依赖基础量与数据（与 ivOffset 无关）：max(数据点最大IV, 基础level+最大偏移1.0)*1.15
+  // 固定上限锚在"基础量"上（与 ivOffset 无关）：max(数据点最大IV, 策略/拟合基准IV + 全局偏移上限1.0)*1.15。
+  // 这样策略独立IV拉满(1.0)+全局+100%(1.0)→真实IV=2.0 也不会被削顶；拖IV时曲线在固定轴上明显移动。
   let ivMin = 0, dataMax = 0;
+  const baseIV = (s && s.ivSet) ? s.iv : smileParams.level;
   quoteData.forEach(r=>{
     if(r.strike<=0) return;
     const iv = (r.call && r.call.iv != null) ? normIV(r.call.iv) : (r.put && r.put.iv != null ? normIV(r.put.iv) : null);
     if(iv != null && isFinite(iv) && iv > dataMax) dataMax = iv;
   });
-  let ivMax = Math.max(dataMax, smileParams.level + 1.0) * 1.15;
+  let ivMax = Math.max(dataMax, baseIV + 1.0) * 1.15;
   if(ivMax < 0.05) ivMax = 0.05;
   const kx = k => m.left + (k-kMin)/(kMax-kMin)*pw;
   const iy = iv => m.top + (ivMax-iv)/(ivMax-ivMin)*ph;
@@ -3439,23 +3441,36 @@ async function init(){
   // 默认品种：取下拉里第一个（原写死 510050，行情库已无此品种 → 设了个不存在的 value → 首屏不加载行情）
   const uSel = document.getElementById('underlying-select');
   if(!uSel.value && uSel.options.length) uSel.value = uSel.options[0].value;
-  await refreshSnapshot(false);
-  await onUnderlyingChange();
-  // 日期：用行情库最新交易日（原写死 2026-07-03，页头会显示错误日期）
-  const dInp = document.getElementById('date-input');
-  try {
-    const r = await fetch('/api/latest-date');
-    const j = await r.json();
-    if(j && j.date && /^\d{8}$/.test(j.date)){
-      dInp.value = j.date.slice(0,4)+'-'+j.date.slice(4,6)+'-'+j.date.slice(6,8);
-    }
-  } catch(e) { /* API 不可用时保留输入框原值 */ }
-  // 兜底：没有 /api（如 GitHub Pages 线上版）时日期为空 → loadQuoteData 会早退 → 首屏空图表
-  if(!dInp.value){
+  // 首屏：先用页面内置骨架即刻渲染（零网络等待，慢网络下不再白屏）
+  async function applyDefaultDateInput(){
+    const dInp = document.getElementById('date-input');
+    if(dInp.value) return;
+    try {
+      const r = await fetch('/api/latest-date');
+      const j = await r.json();
+      if(j && j.date && /^\d{8}$/.test(j.date)){
+        dInp.value = j.date.slice(0,4)+'-'+j.date.slice(4,6)+'-'+j.date.slice(6,8);
+        return;
+      }
+    } catch(e) { /* API 不可用时保留输入框原值 */ }
     const now = new Date();
     dInp.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   }
-  await loadQuoteData();
+  await onUnderlyingChange();        // 用内置骨架填充下拉与行情
+  await applyDefaultDateInput();
+  await loadQuoteData();             // 用骨架渲染图表/报价表
+  snapStatus(); updateSnapHint();
+  // 异步刷新：拉到在线快照后再整体重渲染（不阻塞首屏）
+  refreshSnapshot(false).then(async (ok)=>{
+    if(!ok) return;
+    try {
+      await loadUnderlyings();       // 下拉可能随新快照换月
+      snapStatus(); updateSnapHint();
+      await onUnderlyingChange();
+      await applyDefaultDateInput();
+      await loadQuoteData();
+    } catch(e) {}
+  }).catch(()=>{});
   initSmileInteractions();
   snapInitUI();
 
@@ -3498,9 +3513,11 @@ function renderTemplateChips(){
   });
 }
 async function loadUnderlyings(){
-  const list=await fetchUnderlyings();
   const sel=document.getElementById('underlying-select');
+  const prev=sel.value;
+  const list=await fetchUnderlyings();
   sel.innerHTML=list.map(u=>`<option value="${u.symbol}">${u.symbol} ${u.name}</option>`).join('');
+  if(prev && list.some(u=>u.symbol===prev)) sel.value=prev;   // 重建下拉后保留用户当前所选品种
 }
 async function onUnderlyingChange(){
   const underlying=document.getElementById('underlying-select').value;
