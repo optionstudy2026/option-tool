@@ -1,10 +1,10 @@
 name: Update snapshot from hithink
 
-# 手动触发（手机/网页点 Run workflow）；需要每天自动跑时把 schedule 打开（20:30 CST = 12:30 UTC）
+# 定时：每个交易日收盘后约 20:30 CST（=12:30 UTC）自动生成 snapshot.json；也可在 Actions 页手动触发
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: '30 12 * * 1-5'
+  schedule:
+    - cron: '30 12 * * 1-5'
 
 permissions:
   contents: write
@@ -29,13 +29,13 @@ jobs:
       - name: Fetch snapshot (hithink key from secret)
         env:
           HITHINK_KEY: ${{ secrets.HITHINK_KEY }}
-        run: python snapshot/fetch_snapshot.py --html payoff.html --concurrency 4 --gap 0.25
+        run: python snapshot/fetch_snapshot.py --html payoff.html --out snapshot.json
 
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add payoff.html
+          git add snapshot.json
           if git diff --staged --quiet; then
             echo "没有变化，跳过提交"
           else
