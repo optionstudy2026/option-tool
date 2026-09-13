@@ -1816,14 +1816,13 @@ function hasRawGreek(key) {
   if(key==='iv') return quoteData.some(r=>(r.call&&r.call.iv!=null)||(r.put&&r.put.iv!=null));
   return quoteData.some(r=>(r.call&&r.call[key]!=null)||(r.put&&r.put[key]!=null));
 }
-// BS 理论希腊值（数据缺失兜底）：IV 用当前微笑曲线（level+ivOffset, skew, curv），DTE 用合约真实剩余天数
-function theoGreek(K, isCall, key) {
-  if(!underlyingPrice || !originalDTE || K<=0) return null;
-  const T = Math.max(sliderDTE,1)/365, r = 0.02;
-  const level = smileParams.level + ivOffset;
-  const iv = smileIV(level, smileParams.skew, smileParams.curvature, K/underlyingPrice - 1);
+// BS 理论希腊值（参数化版本：供"固定标尺扫描"复用，不依赖当前滑块全局变量）
+function theoGreekAt(K, isCall, key, T, ivOff, sk, cv, U) {
+  if(!U || K<=0 || !(T>0.001)) return null;
+  const level = smileParams.level + ivOff;
+  const iv = smileIV(level, sk, cv, K/U - 1);
   if(!isFinite(iv) || iv <= 0.001) return null;
-  const S = underlyingPrice;
+  const S = U, r = 0.02;
   const d1 = (Math.log(S/K)+(r+iv*iv/2)*T)/(iv*Math.sqrt(T));
   if(key==='delta') return isCall ? cdfNorm(d1) : cdfNorm(d1)-1;
   if(key==='gamma') return pdfNorm(d1)/(S*iv*Math.sqrt(T));
@@ -1835,6 +1834,48 @@ function theoGreek(K, isCall, key) {
       : (-S*pdfNorm(d1)*iv/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*cdfNorm(-d2))/365;
   }
   return null;
+}
+// BS 理论希腊值（数据缺失兜底）：IV 用当前微笑曲线（level+ivOffset, skew, curv），DTE 用滑块
+function theoGreek(K, isCall, key) {
+  if(!underlyingPrice || !originalDTE || K<=0) return null;
+  return theoGreekAt(K, isCall, key, Math.max(sliderDTE,1)/365, ivOffset, smileParams.skew, smileParams.curvature, underlyingPrice);
+}
+// 希腊值小图固定 y 轴标尺：扫描全部滑块取值（DTE/IV/skew/curv 全范围）下的理论希腊值极值，
+// 作为固定上下限 → 滑动滑块时只看到曲线高度/形状变化，y 轴上限恒定不漂移（与左侧主图一致）。
+// 缓存：仅当标的/基础IV/DTE 范围变化时才重算；拖动 IV/DTE/skew/curv 滑块不触发重算（标尺保持固定）。
+// 注：扫描始终覆盖 skew[-1,1]、curv[0,9] 全范围，故标尺与当前 skew/curv 无关（无需进缓存键）。
+let _gcCacheKey = null, _gcScale = {};
+function greekScaleFor(key, rows, U) {
+  const dteMinEl=document.getElementById('dte-min'), dteMaxEl=document.getElementById('dte-max');
+  const dteLo = dteMinEl ? Math.max(0, parseInt(dteMinEl.value)||0) : 0;
+  const dteHi = dteMaxEl ? Math.max(dteLo+1, parseInt(dteMaxEl.value)||30) : 30;
+  const keyStr = key+'#'+U+'#'+smileParams.level+'#'+Math.max(1,dteLo)+'#'+dteHi+'#'+rows.length;
+  if(keyStr === _gcCacheKey && _gcScale[key] != null) return _gcScale[key];
+  let lo = Infinity, hi = -Infinity;
+  const dteN=30, ivN=6, skN=3, cvN=3;
+  for(let di=0; di<=dteN; di++){
+    const T = (Math.max(1,dteLo) + (dteHi-Math.max(1,dteLo))*di/dteN)/365;
+    for(let ii=0; ii<=ivN; ii++){
+      const ivOff = 1.0*ii/ivN;
+      for(let si=0; si<=skN; si++){
+        const sk = -1 + 2*si/skN;
+        for(let ci=0; ci<=cvN; ci++){
+          const cv = 9*ci/cvN;
+          for(const r of rows){
+            const c = theoGreekAt(r.strike, true, key, T, ivOff, sk, cv, U);
+            const p = theoGreekAt(r.strike, false, key, T, ivOff, sk, cv, U);
+            if(c!=null){ if(c>hi) hi=c; if(c<lo) lo=c; }
+            if(p!=null){ if(p>hi) hi=p; if(p<lo) lo=p; }
+          }
+        }
+      }
+    }
+  }
+  if(!isFinite(lo)||!isFinite(hi)||hi<=lo){ lo=-0.001; hi=0.001; }
+  const m = (hi - lo) * 0.15 || 0.001;   // 15% 余量兜底（防网格漏点导致裁切）
+  const val = { lo: lo - m, hi: hi + m };
+  _gcCacheKey = keyStr; _gcScale[key] = val;
+  return val;
 }
 
 // 画希腊值曲线（不同行权价）：call 蓝、put 红（实线，左轴=绝对值）
@@ -1853,14 +1894,13 @@ function drawGreeksCurve(cv, s, key) {
     put: greekOf(r,'put',key),
   }));
   const xs = pts.map(p=>p.x);
-  let all = [];
-  pts.forEach(p=>{ if(p.call!=null) all.push(p.call); if(p.put!=null) all.push(p.put); });
-  if(!all.length) return;
+  if(!xs.length) return;
   let xMin = Math.min(...xs), xMax = Math.max(...xs);
-  let yMin = Math.min(...all), yMax = Math.max(...all);
-  const xPad = (xMax-xMin)*0.02 || 1, yPad = (yMax-yMin)*0.15 || 0.001;
-  xMin -= xPad; xMax += xPad; yMin -= yPad; yMax += yPad;
-  if(yMin===yMax){ yMin-=1; yMax+=1; }
+  const xPad = (xMax-xMin)*0.02 || 1;
+  xMin -= xPad; xMax += xPad;
+  // 固定 y 轴上限：覆盖全部滑块取值下的理论希腊值极值，滑动时不漂移（与左侧主图一致）
+  const sc = greekScaleFor(key, rows, underlyingPrice);
+  let yMin = sc.lo, yMax = sc.hi;
   const X = x => m.left + (x-xMin)/(xMax-xMin)*pw;
   const Y = y => m.top + ph - (y-yMin)/(yMax-yMin)*ph;
   // 网格 + 轴线
@@ -1994,9 +2034,10 @@ function drawSmileBig(cv, s) {
   ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
   ctx.strokeRect(m.left, m.top, pw, ph);
 
-  // 真实数据点（call 红点、put 蓝点）——报价表 iv_theo
+  // 真实数据点：仅画虚值点（实值 CALL=K>S 与 实值 PUT=K<S 不画），减少杂乱
+  // 配色与右侧希腊值窗口统一：蓝=虚值CALL(K<S 左侧)，红=虚值PUT(K>S 右侧)
   quoteData.forEach(r=>{
-    if(r.strike<=0) return;
+    if(r.strike<=0 || !underlyingPrice) return;
     const k = Math.log(r.strike / underlyingPrice);
     if(k<kMin||k>kMax) return;
     const drawPt = (ivRaw, color) => {
@@ -2006,9 +2047,13 @@ function drawSmileBig(cv, s) {
       ctx.fillStyle = color;
       ctx.beginPath(); ctx.arc(kx(k), iy(iv), 3, 0, 6.283); ctx.fill();
     };
-    drawPt(r.call && r.call.iv, '#dc2626');
-    drawPt(r.put && r.put.iv, '#2563eb');
+    if(r.strike < underlyingPrice) drawPt(r.call && r.call.iv, '#2563eb'); // 虚值 CALL
+    if(r.strike > underlyingPrice) drawPt(r.put && r.put.iv, '#dc2626');  // 虚值 PUT
   });
+  // 图例：蓝=虚值CALL 红=虚值PUT（仅虚值点）
+  ctx.font = '9px sans-serif'; ctx.textAlign='left';
+  ctx.fillStyle = '#2563eb'; ctx.fillText('● 虚值CALL', m.left+2, m.top+11);
+  ctx.fillStyle = '#dc2626'; ctx.fillText('● 虚值PUT', m.left+62, m.top+11);
 
   // 拟合曲线（激活策略颜色，实线=绝对）
   ctx.strokeStyle = s.color; ctx.lineWidth = 2.5;
