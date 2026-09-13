@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""GitHub Actions 侧：抓同花顺收盘价 → 反解 IV → 回写 payoff.html 内嵌快照 → 由 workflow 提交
-key 从环境变量 HITHINK_KEY 读（GitHub Secret）；本地测试可用 --key-file 从账户密码.db 取。
-用法：HITHINK_KEY=xxx python3 fetch_snapshot.py --html payoff.html
+"""GitHub Actions 侧：抓同花顺收盘价 → 反解 IV → 写出 snapshot.json（同源托管）→ 由 workflow 提交
+key 从环境变量 HITHINK_KEY 读（GitHub Secret，绝不进入页面源码）；本地测试可用 --key-file 从账户密码.db 取。
+用法：HITHINK_KEY=xxx python3 fetch_snapshot.py --html payoff.html --out snapshot.json
 """
 import argparse, json, os, re, sqlite3, statistics, sys, time
 from datetime import date, datetime, timedelta
@@ -14,6 +14,7 @@ ap.add_argument("--key-file", default="/home/ubuntu/quant/账户密码.db", help
 ap.add_argument("--concurrency", type=int, default=4)
 ap.add_argument("--gap", type=float, default=0.25)
 ap.add_argument("--dry-run", action="store_true")
+ap.add_argument("--out", default="snapshot.json", help="输出的快照 JSON 路径（同源托管，页面拉取；不参与页面源码）")
 a = ap.parse_args()
 
 KEY = os.environ.get("HITHINK_KEY") or (
@@ -81,6 +82,12 @@ m = re.search(r"const SNAPSHOT_SKELETON = (\{.*?\});\n", html, re.S)
 if not m: sys.exit("payoff.html 里没找到 SNAPSHOT_SKELETON")
 sk = json.loads(m.group(1))
 old_date = sk.get("trade_date")
+# 基线：优先用已发布的 snapshot.json（避免每天无变化时重复提交）
+try:
+    _prev = json.load(open(a.out, encoding="utf-8"))
+    old_date = _prev.get("trade_date", old_date)
+except Exception:
+    pass
 print("骨架交易日:", old_date, "| 品种:", len(sk["products"]))
 
 now = sh_now(); today = now.date(); closed = (now.hour*60 + now.minute) >= MARKET_CLOSE_MIN
@@ -157,14 +164,12 @@ for p, info in sk["products"].items():
             info.setdefault("puts_px", {})[f"{K:g}"] = [p_[0], None if ivp is None else round(ivp*100, 2)]
 sk["trade_date"] = new_date.replace("-", "")
 sk["generated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " (GitHub Actions)"
+# 写出独立 snapshot.json（页面同源加载，密钥始终在服务端；不再回写页面源码）
 new_json = json.dumps(sk, ensure_ascii=False, separators=(",", ":"))
-out = html[:m.start(1)] + new_json + html[m.end(1):]
-
-# 页面上标注数据来源
-out = out.replace("内置快照 ", "快照 ")
+with open(a.out, "w", encoding="utf-8") as f:
+    f.write(new_json)
+    f.write("\n")
 if a.dry_run:
-    open("/tmp/payoff_updated.html", "w", encoding="utf-8").write(out)
-    print("dry-run：写出 /tmp/payoff_updated.html（未改仓库文件）")
+    print("dry-run：将写出", a.out, "（未改仓库文件）")
 else:
-    open(a.html, "w", encoding="utf-8").write(out)
-    print("已回写", a.html, "| 新交易日", sk["trade_date"], "| 大小", round(len(out)/1024), "KB")
+    print("已写出", a.out, "| 新交易日", sk["trade_date"], "| 品种数", len(sk["products"]))
