@@ -29,7 +29,13 @@ jobs:
       - name: Fetch snapshot (hithink key from secret)
         env:
           HITHINK_KEY: ${{ secrets.HITHINK_KEY }}
-        run: python snapshot/fetch_snapshot.py --html payoff.html --out snapshot.json
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE="--force"
+          else
+            FORCE=""
+          fi
+          python snapshot/fetch_snapshot.py --html payoff.html --out snapshot.json $FORCE
 
       - name: Commit and push if changed
         run: |
