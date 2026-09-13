@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="oJ5uMlo9dSa4BjlCJBPMIC">
-<head data-page-node-id="X82S8YeOXpNKTIrULyqTDc">
-<meta charset="UTF-8" data-page-node-id="oCpOrh5rV5NRR5GrG3s3OD">
-<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="TLM6J65bew4ibMRYMIqN3o">
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>期权组合损益图 - 多策略叠加</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -142,137 +142,137 @@
   .slider-range-input { width: 52px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; font-size: 12px; text-align: center; color: var(--text); }
 </style>
 </head>
-<body data-page-node-id="S7fZ0VfBCAcOW9xKdO6CZh">
-<div id="navbar" data-page-node-id="EPxkQsVZMg77katrCI11az">
-  <span class="title" data-page-node-id="MsWnyNOrdYJvxoy0zjEXjU">期权损益图（多策略）</span>
-  <span id="db-indicator" class="db-status disconnected" data-page-node-id="9jGXfFQj7qwZDho7lWfJNS"></span>
-  <span class="date-display" id="current-date-display" data-page-node-id="05xu06UyzsuIR8Xvir54BA">—</span>
+<body>
+<div id="navbar">
+  <span class="title">期权损益图（多策略）</span>
+  <span id="db-indicator" class="db-status disconnected"></span>
+  <span class="date-display" id="current-date-display">—</span>
 </div>
 
-<div id="main" data-page-node-id="q1Dorszo8BRJ5hXlzqswJn">
-  <div id="left-panel" data-page-node-id="5dqjxKwOJuETTd4QTOtFhC">
-    <div class="section" data-page-node-id="Q2gCybBem3ck0uq906xpRb">
-      <div class="section-title" data-page-node-id="UfiPRCHi3mBFfdiqNXirnQ">策略模板</div>
-      <div id="template-chips" data-page-node-id="ga7llXawiAxmWTcpYOUYMD"></div>
+<div id="main">
+  <div id="left-panel">
+    <div class="section">
+      <div class="section-title">策略模板</div>
+      <div id="template-chips"></div>
     </div>
-    <div class="section" data-page-node-id="nMAQniMCVtR8UhiRx4lfT9">
-      <div class="section-title" data-page-node-id="V0v3RrgK71AhPVJqvxD4al">合约筛选</div>
-      <div id="selectors-row" data-page-node-id="liXHa7Wg8LPLSuxE5MNSNd">
-        <select id="underlying-select" data-page-node-id="VkoGZGcpHGrGfetdDmeMlC"></select>
-        <select id="expiry-select" data-page-node-id="GhQIVol4clETJlSSFjb4Hg"></select>
-        <input type="date" id="date-input" data-page-node-id="EihsDfep7WaYSSIxKX79oX">
-        <button class="btn btn-primary btn-sm" id="load-btn" data-page-node-id="pH6SVk0Oj43JcFKZoLPuzM">加载</button>
+    <div class="section">
+      <div class="section-title">合约筛选</div>
+      <div id="selectors-row">
+        <select id="underlying-select"></select>
+        <select id="expiry-select"></select>
+        <input type="date" id="date-input">
+        <button class="btn btn-primary btn-sm" id="load-btn">加载</button>
       </div>
     </div>
-    <div class="section" data-page-node-id="y6vWQhXyWau5UsphYEE4Ge">
-      <div class="section-title" data-page-node-id="RfVWxlz9GWwsOJHbWancsF">波动率与时间</div>
-      <div class="slider-section" data-page-node-id="tk0n5cMzREYKkvYVo1DbK1">
-        <div class="slider-row" data-page-node-id="lDGwekL7KshaU3TSJVpTDy">
-          <label data-page-node-id="znvQiw2Gu8wPSf6hdkF2yO">IV水平</label>
-          <input type="range" id="iv-slider" min="0" max="100" value="0" step="1" data-page-node-id="4cCuVkvquhRLSf4wSRBz6r">
-          <span class="slider-val" id="iv-val" data-page-node-id="WKibuKuNmyWr5nrYkPWUXC">0%</span>
-          <input type="number" class="slider-range-input" id="iv-min" value="0" min="0" max="99" step="1" data-page-node-id="QIdbAhkPErESTURMP7sH3h">
-          <span style="font-size:11px;color:var(--text-secondary)" data-page-node-id="NELckVhTVzG9FAl4n0Al8Z">~</span>
-          <input type="number" class="slider-range-input" id="iv-max" value="100" min="1" max="100" step="1" data-page-node-id="7TL6dKMmA298o8K8Maca6g">
+    <div class="section">
+      <div class="section-title">波动率与时间</div>
+      <div class="slider-section">
+        <div class="slider-row">
+          <label>IV水平</label>
+          <input type="range" id="iv-slider" min="0" max="100" value="0" step="1">
+          <span class="slider-val" id="iv-val">0%</span>
+          <input type="number" class="slider-range-input" id="iv-min" value="0" min="0" max="99" step="1">
+          <span style="font-size:11px;color:var(--text-secondary)">~</span>
+          <input type="number" class="slider-range-input" id="iv-max" value="100" min="1" max="100" step="1">
         </div>
-        <div class="slider-row" data-page-node-id="79tsSjJNPcaPkpHl1DPppv">
-          <label data-page-node-id="mIeSWRBpzmAEFsBUyPDTpT">偏度</label>
-          <input type="range" id="skew-slider" min="-100" max="100" value="0" step="1" data-page-node-id="zhUhSTYm19qHmYPOTRkyYF">
-          <span class="slider-val" id="skew-val" data-page-node-id="aBUf28nGk10ayY9ERX9drx">0</span>
+        <div class="slider-row">
+          <label>偏度</label>
+          <input type="range" id="skew-slider" min="-100" max="100" value="0" step="1">
+          <span class="slider-val" id="skew-val">0</span>
         </div>
-        <div class="slider-row" data-page-node-id="fpvfcd1mKceU2nASemb5gX">
-          <label data-page-node-id="xxihTFnVhAoVf2Gwf50h2C">曲率</label>
-          <input type="range" id="curv-slider" min="0" max="900" value="0" step="1" data-page-node-id="CMxahQ2yGGo9bF3uhoEoC4">
-          <span class="slider-val" id="curv-val" data-page-node-id="AmdKQlWKEBCAVu0Y00iZRL">0</span>
+        <div class="slider-row">
+          <label>曲率</label>
+          <input type="range" id="curv-slider" min="0" max="900" value="0" step="1">
+          <span class="slider-val" id="curv-val">0</span>
         </div>
-        <div class="slider-row" data-page-node-id="YHO3uilYxErMUYzjGHbGTs">
-          <label data-page-node-id="9POTwHz44E5E082pYq5H81">剩余天数</label>
-          <input type="range" id="dte-slider" min="0" max="30" value="30" step="1" data-page-node-id="je9PWuFtD5Q9AHOmzp1Mem">
-          <span class="slider-val" id="dte-val" data-page-node-id="HGb0CzgKQGeFdpchR41L1v">30天</span>
-          <input type="number" class="slider-range-input" id="dte-min" value="0" min="0" step="1" data-page-node-id="gvXap39006HluGKzXhEjzQ">
-          <span style="font-size:11px;color:var(--text-secondary)" data-page-node-id="HsgwcuNjK3Pamg4GhNEQL4">~</span>
-          <input type="number" class="slider-range-input" id="dte-max" value="30" min="1" step="1" data-page-node-id="obMBjD7oyBF1WjquU5XCjf">
+        <div class="slider-row">
+          <label>剩余天数</label>
+          <input type="range" id="dte-slider" min="0" max="30" value="30" step="1">
+          <span class="slider-val" id="dte-val">30天</span>
+          <input type="number" class="slider-range-input" id="dte-min" value="0" min="0" step="1">
+          <span style="font-size:11px;color:var(--text-secondary)">~</span>
+          <input type="number" class="slider-range-input" id="dte-max" value="30" min="1" step="1">
         </div>
       </div>
     </div>
-    <div class="section" style="flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden;" data-page-node-id="SdIBUCg6UhwQXHOVWDEPmf">
-      <div class="section-title" data-page-node-id="j1x9L6bK79POGzVty4lxze">T型报价</div>
-      <div id="guide-hint-bar" data-page-node-id="xNbgimFdzKJCxkBy42ZhU7"></div>
-      <div id="quote-table-wrap" data-page-node-id="G9NZZ6gowqkQ7RgfNKSOzQ">
-        <table id="quote-table" data-page-node-id="6vcnCtNlwzm1RhiOPAWqC6">
-          <thead data-page-node-id="O4n8pjvq5naGDGq16RKBZn">
-            <tr data-page-node-id="Fz7E3gBmRLU4d89wMxvO3i"><th colspan="3" data-page-node-id="xc1FHjlW9GkfaRsRmNIxKM">CALL</th><th data-page-node-id="ftq9VgkrTJvOpFGVLRxQx0">行权价</th><th colspan="3" data-page-node-id="lpuZoaJI5cBvjqIKwZVNq3">PUT</th></tr>
-            <tr data-page-node-id="mEqRZIUjgMeS4e3Ta4Drr4"><th data-page-node-id="7FUj5K63GupoQoa7uigfR4">最新价</th><th data-page-node-id="dK2JsihqsItXSwKpqsvmiV">Delta</th><th data-page-node-id="2TXvJIp9DIAsnCs2o76kY0"></th><th data-page-node-id="IgXnVl3xNwwcffWCePRG9r"></th><th data-page-node-id="PA2h8ivug4R4N67h0JpBq9"></th><th data-page-node-id="V6yVURWIPD1BKemSSpVgFE">Delta</th><th data-page-node-id="kkBkGBGzVEqHEj2aS9oc0F">最新价</th></tr>
+    <div class="section" style="flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden;">
+      <div class="section-title">T型报价</div>
+      <div id="guide-hint-bar"></div>
+      <div id="quote-table-wrap">
+        <table id="quote-table">
+          <thead>
+            <tr><th colspan="3">CALL</th><th>行权价</th><th colspan="3">PUT</th></tr>
+            <tr><th>最新价</th><th>Delta</th><th></th><th></th><th></th><th>Delta</th><th>最新价</th></tr>
           </thead>
-          <tbody id="quote-tbody" data-page-node-id="Oeitm9DHs5FKFA3zmXfO4J"></tbody>
+          <tbody id="quote-tbody"></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <div id="center-panel" data-page-node-id="AfEY2jzBER1KGPuvv0qdnV">
-    <div class="section" style="display:flex; justify-content:space-between; align-items:center;" data-page-node-id="GNCgickA4SQJvd9ULukJDT">
-      <div class="section-title" data-page-node-id="67lyf3L3ycLLhQhklsqV09">策略管理</div>
-      <div data-page-node-id="36zROBZsYU5ppjwbUKiGST">
-        <button class="btn btn-outline btn-sm" id="new-strategy-btn" data-page-node-id="qHWP7Mdf3IPYQ9PHYub3Se">+ 新建</button>
-        <button class="btn btn-outline btn-sm" id="copy-strategy-btn" data-page-node-id="RAB66lvvVqdZUgrmMyiN27">复制</button>
+  <div id="center-panel">
+    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="section-title">策略管理</div>
+      <div>
+        <button class="btn btn-outline btn-sm" id="new-strategy-btn">+ 新建</button>
+        <button class="btn btn-outline btn-sm" id="copy-strategy-btn">复制</button>
       </div>
     </div>
-    <div id="strategy-list" data-page-node-id="GXCt5T1cUgK1NQYnjnaM7k"></div>
-    <div class="section" data-page-node-id="lj54SckntEH8VtFLU3SgBr">
-      <div class="section-title" data-page-node-id="HVeuvCEurDBUlCjjbPirob">建仓成本（当前激活策略）</div>
-      <div id="cost-area" data-page-node-id="YBsUSQL5TIoBON0HyAEKNx">
-        <input type="number" id="cost-input" placeholder="总成本（元）" step="0.01" data-page-node-id="LiV1joFPBGg3WQppyEOw4R">
-        <button id="cost-auto-btn" title="按当前价/IV/DTE 的 BS 理论价值自动填（手动改过后不再自动，除非再点这里）" data-page-node-id="nMM3xhvwi9UkjEZqIoBefu">自动</button>
-        <input type="range" id="cost-slider" min="0" max="100" step="1" style="width:100%; margin-top:6px; accent-color:var(--accent,#6366f1);" title="拖动调成本：步长=自动成本的1%（滚轮也可调）" data-page-node-id="0nJw2rmbgYGEiMK4HCjRGr">
-        <span id="cost-preview" style="font-size:12px; color:var(--text-secondary);" data-page-node-id="zdWWr4MIAiwMqkQ4lzcf5v"></span>
+    <div id="strategy-list"></div>
+    <div class="section">
+      <div class="section-title">建仓成本（当前激活策略）</div>
+      <div id="cost-area">
+        <input type="number" id="cost-input" placeholder="总成本（元）" step="0.01">
+        <button id="cost-auto-btn" title="按当前价/IV/DTE 的 BS 理论价值自动填（手动改过后不再自动，除非再点这里）">自动</button>
+        <input type="range" id="cost-slider" min="0" max="100" step="1" style="width:100%; margin-top:6px; accent-color:var(--accent,#6366f1);" title="拖动调成本：步长=自动成本的1%（滚轮也可调）">
+        <span id="cost-preview" style="font-size:12px; color:var(--text-secondary);"></span>
       </div>
     </div>
   </div>
 
-  <div id="chart-area" data-page-node-id="BzJoLyy5Kxh1lYDdX4POQ4">
-<div id="snap-bar" style="display:flex;align-items:center;gap:10px;padding:4px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary);flex-wrap:wrap;" data-page-node-id="K4alKiUR0I1wBg7W20C6o3"><span id="snap-fetched" style="color:#166534;font-weight:600;" data-page-node-id="0M3WzFVZ0cf8ZWiNjHHIwU"></span><a id="snap-trigger" href="#" rel="noopener" style="padding:3px 12px;font-size:13px;background:var(--accent,#2563eb);color:#fff;border-radius:5px;text-decoration:none;" data-page-node-id="kvdbigEV6IHuHvv5dojykc">更新行情快照</a><span style="color:#94a3b8;" data-page-node-id="PFTssda5UB2Ugbu95EyLba">点开后在页面右上角点 >数据由定时任务每日收盘后更新；点上方按钮可拉取到本机缓存</span><span id="snap-hint" style="color:#b45309;" data-page-node-id="90RLLQLOQNSeyxHjiImdZt"></span></div>
-    <div id="heat-toolbar" data-page-node-id="GXh5MJMKeH8fh2BF611BX7">
-      <span style="color:var(--text-secondary)" data-page-node-id="LiIR7RrNiJhbb9ioPKK1C6">视图:</span>
-      <button class="heat-btn active" data-hm="" data-page-node-id="h89sYPt8uwFzwU4nFqex5b">曲线</button>
-      <button class="heat-btn" data-hm="sd" title="横轴=标的价格，纵轴=剩余天数，固定IV（用左侧IV滑块调）" data-page-node-id="VFHQJdG0ynF2oCf5CCpN8T">S×DTE</button>
-      <button class="heat-btn" data-hm="si" title="横轴=标的价格，纵轴=IV，固定DTE（用左侧DTE滑块调）" data-page-node-id="BC7EoguSHBu5y778nzUS3s">S×IV</button>
-      <button class="heat-btn" data-hm="di" title="横轴=剩余天数，纵轴=IV，固定标的价格（用右侧小滑块调）" data-page-node-id="0XFnVMjDH8LavtAQQSdtkK">DTE×IV</button>
-      <span id="heat-fix-wrap" style="display:none;align-items:center;gap:4px;color:var(--text-secondary);" data-page-node-id="IvUpSJZkcRtLA3Mt6rWi14">
-        固定S <input type="range" id="heat-fix-s" style="width:110px;" step="0.001" data-page-node-id="NPYBkuXIFzQeplJnMkmkwv">
-        <span id="heat-fix-s-val" style="font-variant-numeric:tabular-nums;" data-page-node-id="rItxln3KbzHi4HQpRJITrH"></span>
+  <div id="chart-area">
+<div id="snap-bar" style="display:flex;align-items:center;gap:10px;padding:4px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary);flex-wrap:wrap;"><span id="snap-fetched" style="color:#166534;font-weight:600;"></span><a id="snap-trigger" href="#" rel="noopener" style="padding:3px 12px;font-size:13px;background:var(--accent,#2563eb);color:#fff;border-radius:5px;text-decoration:none;">更新行情快照</a><span style="color:#94a3b8;">点开后在页面右上角点 >数据由定时任务每日收盘后更新；点上方按钮可拉取到本机缓存</span><span id="snap-hint" style="color:#b45309;"></span></div>
+    <div id="heat-toolbar">
+      <span style="color:var(--text-secondary)">视图:</span>
+      <button class="heat-btn active" data-hm="">曲线</button>
+      <button class="heat-btn" data-hm="sd" title="横轴=标的价格，纵轴=剩余天数，固定IV（用左侧IV滑块调）">S×DTE</button>
+      <button class="heat-btn" data-hm="si" title="横轴=标的价格，纵轴=IV，固定DTE（用左侧DTE滑块调）">S×IV</button>
+      <button class="heat-btn" data-hm="di" title="横轴=剩余天数，纵轴=IV，固定标的价格（用右侧小滑块调）">DTE×IV</button>
+      <span id="heat-fix-wrap" style="display:none;align-items:center;gap:4px;color:var(--text-secondary);">
+        固定S <input type="range" id="heat-fix-s" style="width:110px;" step="0.001">
+        <span id="heat-fix-s-val" style="font-variant-numeric:tabular-nums;"></span>
       </span>
-      <label id="heat-smile-wrap" style="display:none;align-items:center;gap:3px;color:var(--text-secondary);cursor:pointer;" title="勾选后 IV 轴表示微笑曲线的水平（≈ATM IV），偏度/曲率按行权价叠加形状；不勾则所有行权价用同一 IV" data-page-node-id="mkGqfpMIAbHOQ7ee7QoWS0">
-        <input type="checkbox" id="heat-smile" checked data-page-node-id="jfOXXTosCoSjFDILGmdSaB">含微笑
+      <label id="heat-smile-wrap" style="display:none;align-items:center;gap:3px;color:var(--text-secondary);cursor:pointer;" title="勾选后 IV 轴表示微笑曲线的水平（≈ATM IV），偏度/曲率按行权价叠加形状；不勾则所有行权价用同一 IV">
+        <input type="checkbox" id="heat-smile" checked>含微笑
       </label>
-      <span id="slice-chip" style="display:none;background:var(--accent-light);color:var(--accent);padding:2px 10px;border-radius:5px;cursor:pointer;" title="退出截面视图，返回普通损益曲线" data-page-node-id="LnqLvWXDExxOy3SWbFTX1u">截面视图 ✕</span>
-      <span id="slice-slope-wrap" style="display:none;align-items:center;gap:4px;color:var(--text-secondary);" data-page-node-id="J9y9LaOmoCoCsVOjzvISyO">
-        斜率 <input type="range" id="slice-slope" min="-100" max="100" step="1" value="0" style="width:140px;" title="绕线段中点旋转剖面线：0=水平（沿横轴），±100=竖直（沿纵轴）；滚动条也可用滚轮调" data-page-node-id="lTC035vLBHbb0xbwUNA36q">
-        <span id="slice-slope-val" style="font-variant-numeric:tabular-nums;min-width:120px;" data-page-node-id="aXMZi1aNSthVCP85XjlAvp"></span>
+      <span id="slice-chip" style="display:none;background:var(--accent-light);color:var(--accent);padding:2px 10px;border-radius:5px;cursor:pointer;" title="退出截面视图，返回普通损益曲线">截面视图 ✕</span>
+      <span id="slice-slope-wrap" style="display:none;align-items:center;gap:4px;color:var(--text-secondary);">
+        斜率 <input type="range" id="slice-slope" min="-100" max="100" step="1" value="0" style="width:140px;" title="绕线段中点旋转剖面线：0=水平（沿横轴），±100=竖直（沿纵轴）；滚动条也可用滚轮调">
+        <span id="slice-slope-val" style="font-variant-numeric:tabular-nums;min-width:120px;"></span>
       </span>
-      <span id="heat-hint" style="display:none;color:#94a3b8;font-size:12px;" data-page-node-id="kPR2C1ZEjXZ1ZBgoO97pxf">按住左键划线取截面：横线=价格损益 · 竖线=时间衰减 · 斜线=情景路径 · 右键清除 · 双击小图放大</span>
+      <span id="heat-hint" style="display:none;color:#94a3b8;font-size:12px;">按住左键划线取截面：横线=价格损益 · 竖线=时间衰减 · 斜线=情景路径 · 右键清除 · 双击小图放大</span>
     </div>
-    <div style="display:flex; flex:1; min-height:0; position:relative;" data-page-node-id="L4crKv2wbRirqsNXA05eO7">
-      <div id="chart-canvas-wrap" data-page-node-id="yZMA4UxWU3sDaHsjMhinPo">
-        <div id="xrange-bar" style="position:absolute;top:8px;left:10px;z-index:9;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px;color:var(--text-secondary);" data-page-node-id="tm1mspHJ9sZ5HHBKulLTAk">
-          <span data-page-node-id="PBinCFiwuqg9x6xKnyk3nH">X轴</span>
-          <input id="xrange-min" type="number" style="width:70px;padding:2px 4px;font-size:12px;border:1px solid var(--border);border-radius:4px;" title="最小价格" data-page-node-id="lNWo71EvY7iWUt85ZNLTP2">
-          <span data-page-node-id="lwMxECI3O2uEGQKePEHpdK">~</span>
-          <input id="xrange-max" type="number" style="width:70px;padding:2px 4px;font-size:12px;border:1px solid var(--border);border-radius:4px;" title="最大价格" data-page-node-id="ELjWRFqQ5yqcolLj5eeFjM">
-          <button id="xrange-apply" style="padding:2px 8px;font-size:12px;cursor:pointer;background:var(--accent,#2563eb);color:#fff;border:none;border-radius:4px;" data-page-node-id="S6MsaA9zNaIaw7ojMwVu5O">设置</button>
-          <button id="xrange-reset" style="padding:2px 8px;font-size:12px;cursor:pointer;background:#e2e8f0;color:#475569;border:none;border-radius:4px;" title="恢复默认 ±15%" data-page-node-id="BN4iGtRRLnLB3PfJKwbeIy">默认</button>
+    <div style="display:flex; flex:1; min-height:0; position:relative;">
+      <div id="chart-canvas-wrap">
+        <div id="xrange-bar" style="position:absolute;top:8px;left:10px;z-index:9;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px;color:var(--text-secondary);">
+          <span>X轴</span>
+          <input id="xrange-min" type="number" style="width:70px;padding:2px 4px;font-size:12px;border:1px solid var(--border);border-radius:4px;" title="最小价格">
+          <span>~</span>
+          <input id="xrange-max" type="number" style="width:70px;padding:2px 4px;font-size:12px;border:1px solid var(--border);border-radius:4px;" title="最大价格">
+          <button id="xrange-apply" style="padding:2px 8px;font-size:12px;cursor:pointer;background:var(--accent,#2563eb);color:#fff;border:none;border-radius:4px;">设置</button>
+          <button id="xrange-reset" style="padding:2px 8px;font-size:12px;cursor:pointer;background:#e2e8f0;color:#475569;border:none;border-radius:4px;" title="恢复默认 ±15%">默认</button>
         </div>
-        <div id="zoom-hint" data-page-node-id="CIOq05jxpEhfPio3kABTwq">🔍 缩放模式 — 按住 Z 并拖拽左键 | Shift+Z 缩小</div>
-        <canvas id="payoff-canvas" data-page-node-id="9xrERGAXHDaWo47AyxRzFl"></canvas>
-        <div id="chart-tooltip" data-page-node-id="6JmSq4s3X44S7aXOcEQ275"></div>
+        <div id="zoom-hint">🔍 缩放模式 — 按住 Z 并拖拽左键 | Shift+Z 缩小</div>
+        <canvas id="payoff-canvas"></canvas>
+        <div id="chart-tooltip"></div>
       </div>
-      <div id="smile-panel" data-page-node-id="WwJ8o7jrtmEyfPbyX767om">
-        <div class="smile-panel-title" data-page-node-id="iVUqN7ZVHPsyOtlY7Kr3ns">希腊值曲线 <span id="smile-panel-sub" style="font-size:11px;color:var(--text-secondary);" data-page-node-id="1pmIZVu37fThdg4ALHfrks"></span></div>
-        <div id="smile-list" data-page-node-id="SsXfb7RY7cHpkw62DSExHi"></div>
-        <div id="smile-tooltip" style="position:absolute;background:rgba(30,41,59,0.92);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;" data-page-node-id="k2PCFQHnuGL5ox7eAxo7DZ"></div>
+      <div id="smile-panel">
+        <div class="smile-panel-title">希腊值曲线 <span id="smile-panel-sub" style="font-size:11px;color:var(--text-secondary);"></span></div>
+        <div id="smile-list"></div>
+        <div id="smile-tooltip" style="position:absolute;background:rgba(30,41,59,0.92);color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;"></div>
       </div>
     </div>
-    <div id="legend" data-page-node-id="BwlRNryV17IWmV0kd5DnAR"></div>
+    <div id="legend"></div>
   </div>
 </div>
 
@@ -907,6 +907,7 @@ let gkScaleInfo = {}; // 每个希腊值的"每格大小"（示波器scale意义
 let gkScaleInfoRel = {}; // 相对值刻度（希腊值/价格）
 let gkGridCount = 6; // 左轴网格格数（希腊值一格 = 范围/格数）
 let gkRefIV = {}; // 每个希腊值的刻度基准 IV（drawChart 里赋值，图例标注用）
+let _gkCacheKey = null, _gkRangeCache = null, _gkRangeRelCache = null; // 希腊值 y 轴固定标尺缓存
 function toggleGreek(sid, k) {
   const s = strategies.find(s=>s.id===sid); if(!s) return;
   if(!s.greeks) s.greeks = { delta:false, gamma:false, vega:false, theta:false };
@@ -1524,51 +1525,87 @@ function drawChart() {
       for(const n of [1,2,5,10]){ if(n*m >= v*0.85) return n*m; }
       return 10*m;
     };
-    greekKeys.forEach(k=>{
-      const refIV = gkRefIV[k] || 0.10;
-      let gMaxRef=0, gMaxRelRef=0;
-      strategyCurves.forEach(sc=>{
-        const absOn = sc.strategy.greeks && sc.strategy.greeks[k];
-        const relOn = sc.strategy.greeksRel && sc.strategy.greeksRel[k];
-        if(!absOn && !relOn) return;
-        // refIV(按希腊值) + refDTE 计算的组合 max（不随当前 IV/DTE 变，只随手数变）
-        let localRef=0, localRelRef=0;
-        for(let i=0;i<=samples;i++){
-          const x=xs[i];
-          let combo=0, price=0;
-          sc.strategy.legs.forEach(leg=>{
-            if(!leg.qty) return; // qty=0 腿不参与
-            const sign=leg.direction==='buy'?1:-1;
-            const T=refDTE/365, r=0.02, iv=refIV;
-            let v=0;
-            if(k==='delta'){ const bs=bsPrice(x,leg.strike,T,r,iv,leg.type==='call'); v=bs.delta; }
-            else if(k==='gamma'){ const bs=bsPrice(x,leg.strike,T,r,iv,leg.type==='call'); v=bs.gamma; }
-            else if(k==='vega'){ const d1=(Math.log(x/leg.strike)+(r+iv*iv/2)*T)/(iv*Math.sqrt(T)); v=x*Math.sqrt(T)*pdfNorm(d1)/100; }
-            else if(k==='theta'){ const d1=(Math.log(x/leg.strike)+(r+iv*iv/2)*T)/(iv*Math.sqrt(T)); const d2=d1-iv*Math.sqrt(T); const t=T; v=(leg.type==='call')?(-x*pdfNorm(d1)*iv/(2*Math.sqrt(t))-r*leg.strike*Math.exp(-r*t)*cdfNorm(d2))/365:(-x*pdfNorm(d1)*iv/(2*Math.sqrt(t))+r*leg.strike*Math.exp(-r*t)*cdfNorm(-d2))/365; }
-            combo += sign*v*leg.qty;
-            // 每张期权价格（不乘 multiplier）
-            const bsp = bsPrice(x, leg.strike, T, r, iv, leg.type==='call');
-            price += sign*bsp.price*leg.qty;
-          });
-          if(Math.abs(combo)>localRef) localRef=Math.abs(combo);
-          // 相对值刻度只按"价格有意义区域"算（价格<0.001 的深虚爆炸点不参与刻度，
-          // 否则刻度被爆炸值撑大、正常区域曲线压扁；绘制时它们仍会冲出屏幕表示无穷）
-          if(price && Math.abs(price)>=0.001){
-            // 与序列计算同一口径：delta ×S（杠杆）、gamma ×S²/20000（1%波动盈亏占比）
-            const f = k==='delta' ? x : (k==='gamma' ? x*x/20000 : 1);
-            const rel = Math.abs(combo*f/price);
-            if(rel>localRelRef) localRelRef=rel;
+    // 希腊值刻度范围：固定标尺（不随 IV/DTE 滑块移动而变）。
+    // 用「所有滑块取值（DTE/IV/skew/curv 全范围）下的最高希腊值」作为上界 →
+    // 滑动时只看到曲线高度/形状变化，不会被自动缩放"压窄"。标尺恒定，×1.15 余量兜底。
+    // 滑块取值范围（取 slider 的 min/max，保证在任何滑块位置上曲线都不会超出标尺）
+    const dteMinEl=document.getElementById('dte-min'), dteMaxEl=document.getElementById('dte-max');
+    const dteLo = dteMinEl? Math.max(0, parseInt(dteMinEl.value)||0) : 0;
+    const dteHi = dteMaxEl? Math.max(dteLo+1, parseInt(dteMaxEl.value)||originalDTE) : originalDTE;
+    const ivLo=0.0, ivHi=1.0;      // ivOffset 被 setIVOffset 钳制在 [0,1]
+    const skLo=-1.0, skHi=1.0;     // skew 滑块 -100..100 → -1..1
+    const cvLo=0.0, cvHi=9.0;      // curvature 滑块 0..900 → 0..9
+    // 扫描步进（希腊值光滑，粗网格即可定位峰值）；x 用步进抽样进一步降费
+    const dteN=5, ivN=4, skN=2, cvN=2, xStep=3;
+    function legGreek(k, x, K, T, iv, type, sign){
+      if(T<=0.001) T=0.001;
+      if(k==='delta'){ const bs=bsPrice(x,K,T,0.02,iv,type==='call'); return sign*bs.delta; }
+      if(k==='gamma'){ const bs=bsPrice(x,K,T,0.02,iv,type==='call'); return sign*bs.gamma; }
+      if(k==='vega'){ const d1=(Math.log(x/K)+(0.02+iv*iv/2)*T)/(iv*Math.sqrt(T)); return sign*x*Math.sqrt(T)*pdfNorm(d1)/100; }
+      const d1=(Math.log(x/K)+(0.02+iv*iv/2)*T)/(iv*Math.sqrt(T)); const d2=d1-iv*Math.sqrt(T); const t=T;
+      const th=(type==='call')?(-x*pdfNorm(d1)*iv/(2*Math.sqrt(t))-0.02*K*Math.exp(-0.02*t)*cdfNorm(d2))/365:(-x*pdfNorm(d1)*iv/(2*Math.sqrt(t))+0.02*K*Math.exp(-0.02*t)*cdfNorm(-d2))/365;
+      return sign*th;
+    }
+    // 缓存：腿结构/开关/level/dte范围 不变时复用，避免每次拖动滑块都全量重算
+    const gkCacheKey = strategyCurves.map(sc=>
+      sc.strategy.legs.map(l=>l.qty+':'+l.strike+':'+l.type+':'+l.direction).join(',')+'|'+
+      (sc.strategy.greeks?['d','g','v','t'].filter(x=>sc.strategy.greeks[x]).join(''):'')+'|'+
+      (sc.strategy.greeksRel?['d','g','v','t'].filter(x=>sc.strategy.greeksRel[x]).join(''):'')
+    ).join(';')+'#'+smileParams.level+'#'+dteLo+'#'+dteHi;
+    if(gkCacheKey !== _gkCacheKey || !_gkRangeCache){
+      greekKeys.forEach(k=>{
+        let gMaxRef=0, gMaxRelRef=0;
+        strategyCurves.forEach(sc=>{
+          const absOn = sc.strategy.greeks && sc.strategy.greeks[k];
+          const relOn = sc.strategy.greeksRel && sc.strategy.greeksRel[k];
+          if(!absOn && !relOn) return;
+          const base = (sc.strategy.ivSet)? sc.strategy.iv : smileParams.level; // 与 getStrikeIV 同一基准
+          let localRef=0, localRelRef=0;
+          for(let di=0; di<=dteN; di++){
+            const DTE = dteLo + (dteHi-dteLo)*di/dteN;
+            const T = DTE/365;
+            for(let ii=0; ii<=ivN; ii++){
+              const ivOff = ivLo + (ivHi-ivLo)*ii/ivN;
+              for(let si=0; si<=skN; si++){
+                const sk = skLo + (skHi-skLo)*si/skN;
+                for(let ci=0; ci<=cvN; ci++){
+                  const cv = cvLo + (cvHi-cvLo)*ci/cvN;
+                  for(let i=0;i<=samples;i+=xStep){
+                    const x=xs[i];
+                    let combo=0, price=0;
+                    sc.strategy.legs.forEach(leg=>{
+                      if(!leg.qty) return; // qty=0 腿不参与
+                      const sign=leg.direction==='buy'?1:-1;
+                      const iv = smileIV(base + ivOff, sk, cv, leg.strike/x - 1);
+                      combo += legGreek(k, x, leg.strike, T, iv, leg.type, sign);
+                      // 每张期权价格（不乘 multiplier）
+                      const bsp = bsPrice(x, leg.strike, T, 0.02, iv, leg.type==='call');
+                      price += sign*bsp.price*leg.qty;
+                    });
+                    if(Math.abs(combo)>localRef) localRef=Math.abs(combo);
+                    // 相对值刻度只按"价格有意义区域"算（价格<0.001 的深虚爆炸点不参与刻度）
+                    if(price && Math.abs(price)>=0.001){
+                      const f = k==='delta' ? x : (k==='gamma' ? x*x/20000 : 1);
+                      const rel = Math.abs(combo*f/price);
+                      if(rel>localRelRef) localRelRef=rel;
+                    }
+                  }
+                }
+              }
+            }
           }
-        }
-        if(localRef>gMaxRef) gMaxRef=localRef;
-        if(localRelRef>gMaxRelRef) gMaxRelRef=localRelRef;
+          if(localRef>gMaxRef) gMaxRef=localRef;
+          if(localRelRef>gMaxRelRef) gMaxRelRef=localRelRef;
+        });
+        // nice 刻度：取最接近且 ≥ v×0.85 的 1/2/5 系列（示波器风格）
+        // 对称范围 [-gNice, gNice]：0 在正中，与左轴 0 线重合；×1.15 余量防削顶且恒定不随滑块变
+        if(anyGreekAbs[k]) gkRange[k] = [-niceVal(gMaxRef*1.15), niceVal(gMaxRef*1.15)];
+        if(anyGreekRel[k]) gkRangeRel[k] = [-niceVal(gMaxRelRef*1.15), niceVal(gMaxRelRef*1.15)];
       });
-      // nice 刻度：取最接近且 ≥ v×0.85 的 1/2/5 系列（示波器风格，留 15% 余量防削顶）
-      // 对称范围 [-gNice, gNice]：0 在正中，与左轴 0 线（Y轴对称后也在正中）重合
-      // ×1.5 余量防削顶（原 ×1.3 在极端参数下仍可能削顶）
-      if(anyGreekAbs[k]) gkRange[k] = [-niceVal(gMaxRef*1.5), niceVal(gMaxRef*1.5)];
-      if(anyGreekRel[k]) gkRangeRel[k] = [-niceVal(gMaxRelRef*1.5), niceVal(gMaxRelRef*1.5)];
-    });
+      _gkCacheKey = gkCacheKey; _gkRangeCache = Object.assign({}, gkRange); _gkRangeRelCache = Object.assign({}, gkRangeRel);
+    } else {
+      Object.assign(gkRange, _gkRangeCache); Object.assign(gkRangeRel, _gkRangeRelCache);
+    }
     greekKeys.forEach(k=>{
       strategyCurves.forEach((sc, si)=>{
         // 绝对值曲线（虚线）
