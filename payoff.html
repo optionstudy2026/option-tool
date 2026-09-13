@@ -1817,10 +1817,10 @@ function hasRawGreek(key) {
   return quoteData.some(r=>(r.call&&r.call[key]!=null)||(r.put&&r.put[key]!=null));
 }
 // BS 理论希腊值（参数化版本：供"固定标尺扫描"复用，不依赖当前滑块全局变量）
-function theoGreekAt(K, isCall, key, T, ivOff, sk, cv, U) {
+// lvl = 绝对 IV 水平（已含 策略基准 + 全局 ivOffset），函数内部不再叠加，便于扫描/复用
+function theoGreekAt(K, isCall, key, T, lvl, sk, cv, U) {
   if(!U || K<=0 || !(T>0.001)) return null;
-  const level = smileParams.level + ivOff;
-  const iv = smileIV(level, sk, cv, K/U - 1);
+  const iv = smileIV(lvl, sk, cv, K/U - 1);
   if(!isFinite(iv) || iv <= 0.001) return null;
   const S = U, r = 0.02;
   const d1 = (Math.log(S/K)+(r+iv*iv/2)*T)/(iv*Math.sqrt(T));
@@ -1835,10 +1835,14 @@ function theoGreekAt(K, isCall, key, T, ivOff, sk, cv, U) {
   }
   return null;
 }
-// BS 理论希腊值（数据缺失兜底）：IV 用当前微笑曲线（level+ivOffset, skew, curv），DTE 用滑块
-function theoGreek(K, isCall, key) {
+// BS 理论希腊值（右侧小图 + 数据缺失兜底）：IV = 策略基准 + 全局 ivOffset，DTE 用滑块
+// base 可选：传入策略则用该策略的 IV 基准（s.ivSet ? s.iv : 拟合 level），
+//   与"IV 大图(drawSmileBig)"及"期权定价(getStrikeIV)"口径一致 → 拖单策略 IV 滑块，小图同步变化；
+//   不传则用拟合 level（兼容旧调用）。
+function theoGreek(K, isCall, key, base) {
   if(!underlyingPrice || !originalDTE || K<=0) return null;
-  return theoGreekAt(K, isCall, key, Math.max(sliderDTE,1)/365, ivOffset, smileParams.skew, smileParams.curvature, underlyingPrice);
+  const lvl = (base != null ? base : smileParams.level) + ivOffset;
+  return theoGreekAt(K, isCall, key, Math.max(sliderDTE,1)/365, lvl, smileParams.skew, smileParams.curvature, underlyingPrice);
 }
 // 希腊值小图固定 y 轴标尺：扫描全部滑块取值（DTE/IV/skew/curv 全范围）下的理论希腊值极值，
 // 作为固定上下限 → 滑动滑块时只看到曲线高度/形状变化，y 轴上限恒定不漂移（与左侧主图一致）。
@@ -1846,28 +1850,37 @@ function theoGreek(K, isCall, key) {
 // 注：扫描始终覆盖 skew[-1,1]、curv[0,9] 全范围，故标尺与当前 skew/curv 无关（无需进缓存键）。
 let _gcScale = {};
 // 希腊值小图固定 y 轴标尺
-// 以【当前 DTE】为基准，扫描 IV 滑块全范围（ivOffset 0~1）与 skew/curv 全范围的理论希腊值极值，
-// 作为固定上下限 → 拖动 IV/skew/curv 滑块时标尺恒定，曲线在固定轴上明显上下移动（IV 变化清晰可见）。
+// 锚点 = 【拟合 level（市场基础 IV）】，扫描 IV 绝对水平区间与 skew/curv 全范围的理论希腊值极值，
+// 作为固定上下限 → 拖动【全局 IV 滑块】或【单策略 IV 滑块】时标尺都恒定，
+// 曲线在固定轴上明显上下移动（IV 变化清晰可见）。
+// 区间取 [level*0.6, level+1.0]：
+//   · 上界 level+1.0 → 完整覆盖全局 IV 滑块的 0~100% 满程；
+//   · 下界 level*0.6 → 给"把单策略 IV 往下调"留出空间（低 IV 希腊值更大，需要上方余量，否则曲线冲出图顶）。
+// 关键：标尺锚在【拟合 level】，不锚在策略 s.iv —— 否则拖策略 IV 时标尺跟着平移，曲线会被"重新居中"而看似不动。
 // 为什么不再把 DTE 也纳入扫描：不同 DTE 的希腊值量级差异极大（1 天期 gamma 可达 40 天期的 ~6 倍），
 // 若把 DTE 1~40 全扫进固定范围，量程会被极短期值撑到 6 倍宽，当前曲线被压成贴底一条直线、
 // 拖 IV 时逐点位移只剩几像素（用户此前反馈"改 IV 小图不变"的真因）。
-// 标尺仅在 DTE / 标的 / 基础 IV 变化时重算（缓存键含当前 DTE）。
-function greekScaleFor(key, rows, U) {
+// 标尺仅在 DTE / 标的 / 基础 IV 变化时重算（缓存键含当前 DTE）——拖 IV/策略IV 滑块命中缓存，标尺恒定。
+function greekScaleFor(key, rows, U, baseIV) {
   const T = Math.max(sliderDTE,1)/365;
-  const keyStr = key+'#'+U+'#'+smileParams.level+'#'+Math.max(sliderDTE,1)+'#'+rows.length;
+  const base = (baseIV != null && isFinite(baseIV) && baseIV > 0) ? baseIV : smileParams.level;
+  // 下界默认 0.6×拟合IV（给"往下调策略 IV"留余量）；若策略 IV 调得更低，下界跟着下探，防止曲线冲出图顶被裁。
+  const lvlLo = Math.min(smileParams.level * 0.6, base);
+  const lvlHi = smileParams.level + 1.0;
+  const keyStr = key+'#'+U+'#'+smileParams.level+'#'+Math.max(sliderDTE,1)+'#'+rows.length+'#'+lvlLo.toFixed(4);
   const cached = _gcScale[key];
   if(cached && cached.keyStr === keyStr) return cached.val;
   let lo = Infinity, hi = -Infinity;
-  const ivN=8, skN=3, cvN=3;
+  const ivN=10, skN=3, cvN=3;
   for(let ii=0; ii<=ivN; ii++){
-    const ivOff = 1.0*ii/ivN;
+    const lvl = lvlLo + (lvlHi-lvlLo)*ii/ivN;
     for(let si=0; si<=skN; si++){
       const sk = -1 + 2*si/skN;
       for(let ci=0; ci<=cvN; ci++){
         const cv = 9*ci/cvN;
         for(const r of rows){
-          const c = theoGreekAt(r.strike, true, key, T, ivOff, sk, cv, U);
-          const p = theoGreekAt(r.strike, false, key, T, ivOff, sk, cv, U);
+          const c = theoGreekAt(r.strike, true, key, T, lvl, sk, cv, U);
+          const p = theoGreekAt(r.strike, false, key, T, lvl, sk, cv, U);
           if(c!=null){ if(c>hi) hi=c; if(c<lo) lo=c; }
           if(p!=null){ if(p>hi) hi=p; if(p<lo) lo=p; }
         }
@@ -1894,10 +1907,13 @@ function drawGreeksCurve(cv, s, key) {
   // 右侧希腊值小图恒用理论 BS 值（由当前 IV/DTE/skew/curv 滑块驱动），
   // 不取快照/模拟数据的"原始希腊值"——那些是固定 DTE/IV 下算出的冻结值，
   // 会让小图对滑块完全无响应（尤其本地预览走 fetchMockOptions 时 delta/gamma 被写死）。
+  // IV 基准与 IV 大图 / 期权定价同口径：策略设了 IV 就用策略的，否则用拟合 level；
+  // 再叠加全局 ivOffset（由 theoGreek 内部加）。这样拖【单策略 IV 滑块】四个希腊值小图同步变化。
+  const baseIV = (s && s.ivSet) ? s.iv : smileParams.level;
   const pts = rows.map(r=>({
     x: r.strike,
-    call: theoGreek(r.strike, true, key),
-    put: theoGreek(r.strike, false, key),
+    call: theoGreek(r.strike, true, key, baseIV),
+    put: theoGreek(r.strike, false, key, baseIV),
   }));
   const xs = pts.map(p=>p.x);
   if(!xs.length) return;
@@ -1905,7 +1921,7 @@ function drawGreeksCurve(cv, s, key) {
   const xPad = (xMax-xMin)*0.02 || 1;
   xMin -= xPad; xMax += xPad;
   // 固定 y 轴上限：覆盖全部滑块取值下的理论希腊值极值，滑动时不漂移（与左侧主图一致）
-  const sc = greekScaleFor(key, rows, underlyingPrice);
+  const sc = greekScaleFor(key, rows, underlyingPrice, baseIV);
   let yMin = sc.lo, yMax = sc.hi;
   const X = x => m.left + (x-xMin)/(xMax-xMin)*pw;
   const Y = y => m.top + ph - (y-yMin)/(yMax-yMin)*ph;
