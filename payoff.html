@@ -989,7 +989,9 @@ function clearActiveLegs() { const s=getActiveStrategy(); if(s){ s.legs=[]; auto
 // 优先用报价表实际价格（用户点报价表建仓时的市场价），查不到才回退 BS 理论价
 function recalcCost(s){
   if(!s) return;
-  if(!underlyingPrice || sliderDTE <= 0.001 || !s.legs.length){ s.cost = 0; return; }
+  // 注：DTE=0（到期）不再强制成本归零——成本=建仓腿的理论/报价价值，与当前 DTE 无关；
+  // BS 兜底路径在 T=0 时由 bsPrice 内部钳制为 0.001（取内在价值），不会产生 NaN。
+  if(!underlyingPrice || !s.legs.length){ s.cost = 0; return; }
   const sdt = strategyDTE(s);
   let total = 0;
   s.legs.forEach(leg=>{
@@ -1034,7 +1036,7 @@ function syncCostInput() {
 }
 // 取自动成本（临时重算、不覆盖手动值）
 function getAutoCost(s) {
-  if(!s || !underlyingPrice || sliderDTE <= 0.001 || !s.legs.length) return 0;
+  if(!s || !underlyingPrice || !s.legs.length) return 0;
   const old = s.cost;
   recalcCost(s);
   const auto = s.cost;
