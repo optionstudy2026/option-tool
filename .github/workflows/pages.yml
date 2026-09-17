@@ -4,6 +4,11 @@ name: Deploy to Pages
 on:
   push:
     branches: ["main"]
+  # Actions 用自带 GITHUB_TOKEN 提交的 commit 不会触发 push 型 workflow（GitHub 防递归），
+  # 所以快照任务完成后要显式挂上 workflow_run，否则新快照永远不部署（2026-09-17 踩坑）。
+  workflow_run:
+    workflows: ["Update snapshot from hithink"]
+    types: [completed]
 
 permissions:
   contents: read
