@@ -94,6 +94,7 @@ print("骨架交易日:", old_date, "| 品种:", len(sk["products"]))
 now = sh_now(); today = now.date(); closed = (now.hour*60 + now.minute) >= MARKET_CLOSE_MIN
 jobs = []
 for p, info in sk["products"].items():
+    prod = str(p).split("|")[0]
     if not info.get("verified"): continue
     if not info.get("last_trade_date"): continue
     y, mo, d = (int(x) for x in info["last_trade_date"].split("-"))
@@ -102,7 +103,7 @@ for p, info in sk["products"].items():
         K = st[0]
         for cp in ("C", "P"):
             cd = info.get("codes", {}).get(f"{cp}{K:g}") if info.get("kind") == "etf" else None
-            cd = cd or code_of(p, info["expiry"], cp, K, info.get("exchange"))
+            cd = cd or code_of(prod, info["expiry"], cp, K, info.get("exchange"))
             if cd: jobs.append((p, K, cp, cd, T))
 print("待抓合约数:", len(jobs))
 
@@ -137,8 +138,9 @@ if a.force:
 
 # 标的价：商品取期货收盘
 for p, info in sk["products"].items():
+    prod = str(p).split("|")[0]
     if not info.get("verified") or info.get("kind") == "etf": continue
-    fut = f"{p}{info['expiry'][2:]}." + {"DCE": "DCE", "SHFE": "SHF", "INE": "INE", "CZCE": "CZC", "GFEX": "GFE"}.get(info.get("exchange"), "DCE")
+    fut = f"{prod}{info['expiry'][2:]}." + {"DCE": "DCE", "SHFE": "SHF", "INE": "INE", "CZCE": "CZC", "GFEX": "GFE"}.get(info.get("exchange"), "DCE")
     j = api("/api/futures/prices/daily", thscode=fut)
     items = (j.get("data") or {}).get("item") or []
     use = [x for x in items if x.get("timestamp") and acceptable(row_date(x["timestamp"]), today, closed)]
