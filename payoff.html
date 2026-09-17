@@ -161,7 +161,7 @@
         <select id="underlying-select" data-page-node-id="uy2OpjcSFMBo7w4Opx85mT"></select>
         <select id="expiry-select" data-page-node-id="BEpodrY6kIYdF3F8qarfDQ"></select>
         <input type="date" id="date-input" data-page-node-id="2VYOwCxfTik6za1pd6BC0E">
-        <button class="btn btn-primary btn-sm" id="load-btn" data-page-node-id="DMreQgf5AOiqDPC2tEmphY">加载</button>
+        <button class="btn btn-primary btn-sm" id="load-btn" data-page-node-id="DMreQgf5AOiqDPC2tEmphY">下载行情数据</button>
       </div>
     </div>
     <div class="section" data-page-node-id="wzKZsLlHkO9693Cwl51ZNJ">
@@ -231,7 +231,6 @@
   </div>
 
   <div id="chart-area" data-page-node-id="WG7FH9qFo1NAicwPlvhEhR">
-<div id="snap-bar" style="display:flex;align-items:center;gap:10px;padding:4px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary);flex-wrap:wrap;" data-page-node-id="V1siXHsdM9PHGV4NbvE0Zg"><span id="snap-fetched" style="color:#166534;font-weight:600;" data-page-node-id="Vdvr82PYT7UR2mjzqgwZZS"></span><a id="snap-trigger" href="#" rel="noopener" style="padding:3px 12px;font-size:13px;background:var(--accent,#2563eb);color:#fff;border-radius:5px;text-decoration:none;" data-page-node-id="4ThgLXOP4EerS9LSCzYNJi">更新行情快照</a><span style="color:#94a3b8;" data-page-node-id="FOGrzfLPCpEDzIICYjn4S8">点开后在页面右上角点 >数据由定时任务每日收盘后更新；点上方按钮可拉取到本机缓存</span><span id="snap-hint" style="color:#b45309;" data-page-node-id="tvvoBuJno8LZ14nLhs3Ipl"></span></div>
     <div id="heat-toolbar" data-page-node-id="pWfk2xyRnOmWXModdD0OeC">
       <span style="color:var(--text-secondary)" data-page-node-id="QnhDYW1GhcKnPRkeHXsDZ6">视图:</span>
       <button class="heat-btn active" data-hm="" data-page-node-id="5BOxrB9bNBF5qmTobSMwZ0">曲线</button>
@@ -569,7 +568,7 @@ const SNAPSHOT_SKELETON = {"trade_date":"20260911","generated_at":"2026-09-13 06
 // ================= 快照模块（只读版，2026-09-13） =================
 // ===== 快照数据来源（2026-09-13 改版）=====
 // 数据由 GitHub Actions 生成 snapshot.json（同花顺 key 存于仓库 Secrets，页面内无任何密钥），与本页同源托管。
-// 访客打开时拉取 snapshot.json；点“更新行情快照”可重新拉取并存入浏览器 localStorage（即访客自己的缓存）。
+// 访客打开时拉取 snapshot.json；点报价表上方的“下载行情数据”可重新拉取快照并加载选中合约到浏览器 localStorage（即访客自己的缓存）。
 // 下方 SNAPSHOT_SKELETON 仅作离线兜底，不参与线上更新。
 let SNAP_SOURCE = '内置兜底(页面内置)';
 let ACTIVE_SNAPSHOT = SNAPSHOT_SKELETON;
@@ -677,23 +676,6 @@ function updateSnapHint(){
   const el = document.getElementById('snap-hint'); if(!el) return;
   const bad = Object.entries(ACTIVE_SNAPSHOT.products).filter(([p,v])=>!v.verified).map(([p])=>p);
   el.textContent = bad.length ? `未解析：${bad.join(' ')}` : '';
-}
-function snapInitUI(){
-  const a = document.getElementById('snap-trigger');
-  if(a){
-    a.textContent = '更新行情快照';
-    a.removeAttribute('href'); a.style.cursor = 'pointer';
-    a.onclick = async (e)=>{
-      e.preventDefault();
-      const old = a.textContent; a.textContent = '更新中…'; a.style.opacity = '0.6';
-      const ok = await refreshSnapshot(true);
-      SNAP_SOURCE = ok ? '在线快照(snapshot.json)' : SNAP_SOURCE;
-      snapStatus(); updateSnapHint();
-      try { await onUnderlyingChange(); await loadQuoteData(); } catch(err) {}
-      a.textContent = old; a.style.opacity = '1';
-    };
-  }
-  snapStatus(); updateSnapHint();
 }
 // <<< SNAPSHOT-BLOCK-END
 // ========== 全局状态 ==========
@@ -3337,7 +3319,10 @@ async function init(){
   renderTemplateChips();
   await loadUnderlyings();
   document.getElementById('underlying-select').addEventListener('change',onUnderlyingChange);
-  document.getElementById('load-btn').addEventListener('click',loadQuoteData);
+  document.getElementById('load-btn').addEventListener('click', async ()=>{
+    try { await refreshSnapshot(true); } catch(e){}
+    try { await loadQuoteData(); } catch(e){}
+  });
   document.getElementById('xrange-apply').addEventListener('click',()=>{
     const mn=parseFloat(document.getElementById('xrange-min').value), mx=parseFloat(document.getElementById('xrange-max').value);
     if(!isFinite(mn)||!isFinite(mx)||mn>=mx){ alert('范围无效：最小值必须小于最大值'); return; }
@@ -3474,7 +3459,6 @@ async function init(){
     } catch(e) {}
   }).catch(()=>{});
   initSmileInteractions();
-  snapInitUI();
 
   const canvas=document.getElementById('payoff-canvas');
   const tooltip=document.getElementById('chart-tooltip');
