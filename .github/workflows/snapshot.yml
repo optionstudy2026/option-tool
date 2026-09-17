@@ -1,10 +1,14 @@
 name: Update snapshot from hithink
 
-# 定时：每个交易日收盘后约 20:30 CST（=12:30 UTC）自动生成 snapshot.json；也可在 Actions 页手动触发
+# 定时：每个交易日 15:30 CST（=07:30 UTC）收盘后自动生成 snapshot.json；
+#       17:30 CST（=09:30 UTC）再兜底一次——15:30 时同花顺日线若尚未更新，这次会补上。
+#       任一次拿到当日行情并提交后，后一次因"没有更新交易日"自动跳过。
+# 也可在 Actions 页手动触发
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 12 * * 1-5'
+    - cron: '30 7 * * 1-5'
+    - cron: '30 9 * * 1-5'
 
 permissions:
   contents: write
