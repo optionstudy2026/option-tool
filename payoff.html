@@ -1485,7 +1485,7 @@ function drawChart() {
   strategyCurves.forEach(sc=>{
     if(!expiryOverlayOn(sc.strategy) || !sc.expiry) return;
     ctx.save();
-    ctx.strokeStyle=sc.strategy.color; ctx.globalAlpha=0.9; ctx.lineWidth=1.8; ctx.setLineDash([7,5]);
+    ctx.strokeStyle='#94a3b8'; ctx.globalAlpha=0.95; ctx.lineWidth=1.8; ctx.setLineDash([7,5]);  // 到期线固定灰色，避免与希腊值曲线(Δ紫/Γ粉/V青/Θ橙)混淆
     ctx.beginPath(); let started=false;
     for(let j=0;j<=samples;j++){ const sx=toX(xs[j]), sy=toY(sc.expiry[j]); if(sy<margin.top||sy>margin.top+ph){ started=false; continue; } if(!started){ ctx.moveTo(sx,sy); started=true; } else ctx.lineTo(sx,sy); }
     ctx.stroke();
