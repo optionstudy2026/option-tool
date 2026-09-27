@@ -1410,8 +1410,9 @@ function drawChart() {
   {
     // 取所有组合值的最大绝对值 ×1.25 预留，对称范围 [-max, +max] → 0 恒在正中
     let maxAbs = 0;
+    // 到期曲线始终参与 Y 轴范围（与叠加开关无关）：保证勾选/取消时刻度尺不动，同时避免虚线被削顶
     strategyCurves.forEach(sc => { sc.combo.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); });
-      if(expiryOverlayOn(sc.strategy) && sc.expiry) sc.expiry.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); }); });
+      if(sc.expiry) sc.expiry.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); }); });
     if(totalCombo) totalCombo.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); });
     const minRange = Math.max(1, underlyingPrice * multiplier * 0.02);
     if(maxAbs < minRange/2) maxAbs = minRange/2;
