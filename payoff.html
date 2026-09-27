@@ -843,7 +843,7 @@ function setSmileParam(kind, v) {
   drawChart(); renderQuoteTable(); renderStrategyList(); updateCostPreview(underlyingPrice);
 }
 function createStrategy(name='', legs=[], cost=0) {
-  const s = { id: stratIdCounter++, name: name || `策略${stratIdCounter-1}`, legs: legs.map(l=>({...l, id:Date.now()+Math.random()})), cost, costManual:false, atExpiry:false, visible:true, fill:true, color: LEG_COLORS_POOL[(stratIdCounter-1)%LEG_COLORS_POOL.length], iv: smileParams.level || defaultIV || 0.20, ivSet:false };
+  const s = { id: stratIdCounter++, name: name || `策略${stratIdCounter-1}`, legs: legs.map(l=>({...l, id:Date.now()+Math.random()})), cost, costManual:false, atExpiry:false, expiryOverlay:true, visible:true, fill:true, color: LEG_COLORS_POOL[(stratIdCounter-1)%LEG_COLORS_POOL.length], iv: smileParams.level || defaultIV || 0.20, ivSet:false };
   snapshotUnderlyingFor(s);  // 记录创建时的标的合约
   strategies.push(s);
   // 默认竖线光标停在当前价（用户需求：新曲线生成时）
@@ -907,13 +907,14 @@ function toggleGreekRel(sid, k) {
   s.greeksRel[k] = !s.greeksRel[k];
   drawChart(); renderStrategyList();
 }
-// 勾选"到期"：本策略按 DTE=0（到期内在价值）计算，用于对比到期收益
-function toggleAtExpiry(sid, checked) {
+// 勾选"叠加到期"：在图上叠加本策略的到期损益曲线（DTE=0，虚线）；主曲线仍按全局 DTE 滑块
+function toggleExpiryOverlay(sid, checked) {
   const s = strategies.find(s=>s.id===sid); if(!s) return;
-  s.atExpiry = !!checked;
-  autoRecalcCost(s);
-  drawChart(); updateCostPreview(underlyingPrice); renderStrategyList();
+  s.expiryOverlay = !!checked;
+  drawChart(); renderStrategyList();
 }
+// 到期叠加开关（老策略无该字段时默认开）
+function expiryOverlayOn(s){ return !!s && s.expiryOverlay !== false; }
 // 某策略当前使用的 DTE（到期勾选→0，否则全局滑块）
 function strategyDTE(s){ return (s && s.atExpiry) ? 0 : sliderDTE; }
 function strategyGreeksOn(s){ return s && s.greeks && (s.greeks.delta||s.greeks.gamma||s.greeks.vega||s.greeks.theta); }
@@ -1138,9 +1139,9 @@ function renderStrategyList(){
             <span class="strategy-iv-val" data-id="${s.id}" style="font-size:11px;min-width:48px;text-align:right;color:var(--text-secondary);">${Math.round(getStrategyIV(s)*100)}%${ivOffset!==0?'<span style="color:#f59e0b">('+(ivOffset*100>=0?'+':'')+Math.round(ivOffset*100)+')</span>':''}</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin:2px 0 4px;">
-            <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;" title="勾选后本策略按 DTE=0（到期内在价值）计算，用于对比到期收益">
-              <input type="checkbox" style="width:14px;height:14px;cursor:pointer;" ${s.atExpiry?'checked':''} onchange="toggleAtExpiry(${s.id}, this.checked)">
-              到期 (DTE=0)
+            <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;" title="勾选后在图上叠加本策略的到期损益曲线（DTE=0，虚线）；主曲线仍按 DTE 滑块">
+              <input type="checkbox" style="width:14px;height:14px;cursor:pointer;" ${expiryOverlayOn(s)?'checked':''} onchange="toggleExpiryOverlay(${s.id}, this.checked)">
+              叠加到期损益（虚线）
             </label>
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin:6px 0 4px;">
@@ -1337,6 +1338,7 @@ function drawChart() {
   const strategyCurves=visibleStrategies.map(s=>({
     strategy:s,
     combo:xs.map(x=>calcPayoffForStrategy(s,x,strategyDTE(s),getStrategyIV(s)) - (chartMode==='pnl'?s.cost:0)),
+    expiry:xs.map(x=>calcPayoffForStrategy(s,x,0,getStrategyIV(s)) - (chartMode==='pnl'?s.cost:0)),
     legs:s.legs.map(leg=>xs.map(x=>{
       if(!leg.qty) return 0; // qty=0 腿不参与
       const sign=leg.direction==='buy'?1:-1;
@@ -1408,7 +1410,8 @@ function drawChart() {
   {
     // 取所有组合值的最大绝对值 ×1.25 预留，对称范围 [-max, +max] → 0 恒在正中
     let maxAbs = 0;
-    strategyCurves.forEach(sc => { sc.combo.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); }); });
+    strategyCurves.forEach(sc => { sc.combo.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); });
+      if(expiryOverlayOn(sc.strategy) && sc.expiry) sc.expiry.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); }); });
     if(totalCombo) totalCombo.forEach(v=>{ if(Number.isFinite(v)&&Math.abs(v)>maxAbs) maxAbs=Math.abs(v); });
     const minRange = Math.max(1, underlyingPrice * multiplier * 0.02);
     if(maxAbs < minRange/2) maxAbs = minRange/2;
@@ -1476,6 +1479,16 @@ function drawChart() {
     ctx.beginPath(); let started=false;
     for(let j=0;j<=samples;j++){ const sx=toX(xs[j]), sy=toY(sc.combo[j]); if(sy<margin.top||sy>margin.top+ph){ started=false; continue; } if(!started){ ctx.moveTo(sx,sy); started=true; } else ctx.lineTo(sx,sy); }
     ctx.stroke();
+  });
+  // 到期损益叠加曲线（虚线，DTE=0）：每个策略独立开关
+  strategyCurves.forEach(sc=>{
+    if(!expiryOverlayOn(sc.strategy) || !sc.expiry) return;
+    ctx.save();
+    ctx.strokeStyle=sc.strategy.color; ctx.globalAlpha=0.9; ctx.lineWidth=1.8; ctx.setLineDash([7,5]);
+    ctx.beginPath(); let started=false;
+    for(let j=0;j<=samples;j++){ const sx=toX(xs[j]), sy=toY(sc.expiry[j]); if(sy<margin.top||sy>margin.top+ph){ started=false; continue; } if(!started){ ctx.moveTo(sx,sy); started=true; } else ctx.lineTo(sx,sy); }
+    ctx.stroke();
+    ctx.restore();
   });
   if(showTotal && totalCombo){
     ctx.strokeStyle='#2563eb'; ctx.lineWidth=3.5;
@@ -2174,6 +2187,10 @@ function renderLegend(){
     <div class="legend-item" onclick="chartMode=chartMode==='value'?'pnl':'value'; drawChart();" style="margin-left:12px;font-weight:600;">
       <span style="background:${chartMode==='pnl'?'#f97316':'#22c55e'};color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">${chartMode==='pnl'?'损益':'价值'}</span>
     </div>
+    ${strategies.some(s=>s.visible&&expiryOverlayOn(s))?`<div class="legend-item" style="cursor:default;" title="虚线 = 到期损益曲线（DTE=0）；实线 = 当前 DTE 的曲线">
+      <div class="legend-line dashed" style="border-color:#94a3b8;"></div>
+      <span style="font-size:12px;color:var(--text-secondary);">虚线=到期</span>
+    </div>`:''}
     ${gkScaleHtml()}`:'');}
 
 // 图例排的希腊值刻度标注：Δ=0.5000（每格大小，希腊色，4位小数）
