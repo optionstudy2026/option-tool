@@ -1551,8 +1551,8 @@ function drawChart() {
     // 缓存：腿结构/开关/level/dte范围 不变时复用，避免每次拖动滑块都全量重算
     const gkCacheKey = strategyCurves.map(sc=>
       sc.strategy.legs.map(l=>l.qty+':'+l.strike+':'+l.type+':'+l.direction).join(',')+'|'+
-      (sc.strategy.greeks?['d','g','v','t'].filter(x=>sc.strategy.greeks[x]).join(''):'')+'|'+
-      (sc.strategy.greeksRel?['d','g','v','t'].filter(x=>sc.strategy.greeksRel[x]).join(''):'')
+      (sc.strategy.greeks?greekKeys.filter(x=>sc.strategy.greeks[x]).join(''):'')+'|'+
+      (sc.strategy.greeksRel?greekKeys.filter(x=>sc.strategy.greeksRel[x]).join(''):'')
     ).join(';')+'#'+smileParams.level+'#'+dteLo+'#'+dteHi;
     if(gkCacheKey !== _gkCacheKey || !_gkRangeCache){
       greekKeys.forEach(k=>{
