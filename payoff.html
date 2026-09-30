@@ -1186,7 +1186,7 @@ function applyTemplate(id) {
   s.legs=[];
   switch(id){
     case 'butterfly': s.legs.push({id:Date.now(),direction:'buy',type:'call',strike:getStrike(-2),qty:1},{id:Date.now()+1,direction:'sell',type:'call',strike:atmStrike,qty:2},{id:Date.now()+2,direction:'buy',type:'call',strike:getStrike(2),qty:1}); break;
-    case 'iron_condor': s.legs.push({id:Date.now(),direction:'buy',type:'put',strike:getStrike(-3)},{id:Date.now()+1,direction:'sell',type:'put',strike:getStrike(-1)},{id:Date.now()+2,direction:'sell',type:'call',strike:getStrike(1)},{id:Date.now()+3,direction:'buy',type:'call',strike:getStrike(3)}); break;
+    case 'iron_condor': s.legs.push({id:Date.now(),direction:'buy',type:'put',strike:getStrike(-3),qty:1},{id:Date.now()+1,direction:'sell',type:'put',strike:getStrike(-1),qty:1},{id:Date.now()+2,direction:'sell',type:'call',strike:getStrike(1),qty:1},{id:Date.now()+3,direction:'buy',type:'call',strike:getStrike(3),qty:1}); break;
     case 'ratio_spread': s.legs.push({id:Date.now(),direction:'buy',type:'call',strike:atmStrike,qty:1},{id:Date.now()+1,direction:'sell',type:'call',strike:getStrike(3),qty:2}); break;
   }
   s.legs.forEach(l=>l.color=s.color); refreshAll();
